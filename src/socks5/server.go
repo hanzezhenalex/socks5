@@ -106,6 +106,7 @@ func (srv *Server) onConnection(conn net.Conn) {
 			_ = conn.Close()
 		}
 		tracer.Errorf("an error happens when handling new connection, err=%s", err.Error())
+		return
 	}
 	tracer.Info("handshake successfully, piping now")
 }

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	connect = uint8(0x00)
+	connect = uint8(0x01)
 
 	cmdConnect = "connect"
 )
