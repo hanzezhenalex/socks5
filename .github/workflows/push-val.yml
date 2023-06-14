@@ -1,0 +1,11 @@
+name: 'push-val'
+on: push
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: 2A
+        run: cd ./src/socks && go test

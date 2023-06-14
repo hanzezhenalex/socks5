@@ -86,14 +86,14 @@ func Test_CommandConnect(t *testing.T) {
 		_, err = conn.Write([]byte{
 			version,
 			0x01,
-			connect,
+			noAuth,
 		})
 		rq.NoError(err)
 
 		_, err = io.ReadFull(conn, buf[:2])
 		rq.NoError(err)
 		rq.Equal(version, buf[0])
-		rq.Equal(connect, buf[1])
+		rq.Equal(noAuth, buf[1])
 
 		_, err = conn.Write([]byte{
 			version,
