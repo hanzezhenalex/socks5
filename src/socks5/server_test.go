@@ -68,9 +68,6 @@ func Test_CommandConnect(t *testing.T) {
 
 	srv, err, ch := createSocksServer()
 	rq.NoError(err)
-	defer func() {
-		srv.Close()
-	}()
 
 	echoServer := TcpEchoServer{
 		addr: "127.0.0.1:8098",
