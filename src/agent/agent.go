@@ -1,8 +1,9 @@
-package src
+package agent
 
 import (
 	"fmt"
 
+	"github.com/hanzezhenalex/socks5/src"
 	"github.com/hanzezhenalex/socks5/src/socks5"
 )
 
@@ -32,14 +33,14 @@ func NewAgent(config Config) *Agent {
 
 func (agent *Agent) Run() error {
 	var (
-		connMngr ConnectionManager
-		authMngr AuthManager
+		connMngr src.ConnectionManager
+		authMngr src.AuthManager
 		errCh    = make(chan error)
 	)
 
 	switch agent.config.Mode {
 	case LocalMode:
-		connMngr = NewConnectionManagement()
+		connMngr = src.NewConnectionManagement()
 		authMngr = struct{}{}
 	default:
 		return fmt.Errorf("%s mode is not supported yet", agent.config.Mode)

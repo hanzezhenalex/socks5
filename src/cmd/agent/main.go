@@ -5,13 +5,13 @@ import (
 	"net"
 	"os"
 
-	"github.com/hanzezhenalex/socks5/src"
+	"github.com/hanzezhenalex/socks5/src/agent"
 
 	"github.com/spf13/cobra"
 )
 
 var (
-	config       src.Config
+	config       agent.Config
 	mode         string
 	ip           string
 	socksSrvPort string
@@ -24,10 +24,10 @@ var rootCmd = &cobra.Command{
 	Use: "start",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		switch mode {
-		case src.LocalMode:
-			config.Mode = src.LocalMode
-		case src.ClusterMode:
-			config.Mode = src.ClusterMode
+		case agent.LocalMode:
+			config.Mode = agent.LocalMode
+		case agent.ClusterMode:
+			config.Mode = agent.ClusterMode
 		default:
 			return fmt.Errorf("unknown mode: %s", mode)
 		}
@@ -46,7 +46,7 @@ var rootCmd = &cobra.Command{
 		config.Socks5Config.Command = commands
 		config.Socks5Config.Auth = auths
 
-		agent := src.NewAgent(config)
+		agent := agent.NewAgent(config)
 		return agent.Run()
 	},
 }
