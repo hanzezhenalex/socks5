@@ -7,6 +7,9 @@ COPY . .
 
 RUN make binaries
 
-FROM busybox as agent
+# busybox
+FROM golang:1.19 as agent
 
-ENTRYPOINT ["${GOPATH}/bin/agent", "start"]
+COPY --from=build /go/bin/agent /usr/bin/agent
+
+ENTRYPOINT ["/usr/bin/agent", "start"]
