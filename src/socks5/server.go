@@ -97,7 +97,7 @@ func (srv *Server) onConnection(conn net.Conn) {
 	ctx := src.NewTraceContext(context.Background())
 	tracer := logrus.WithField("id", src.GetIDFromContext(ctx))
 
-	tracer.Infof("new connection from %s", conn.RemoteAddr().String())
+	tracer.Debugf("new connection from %s", conn.RemoteAddr().String())
 	if err := srv.handshake(ctx, conn, tracer); err != nil {
 		if _, ok := err.(NetworkError); !ok {
 			if socksErr, ok := err.(socksError); ok {
@@ -108,7 +108,7 @@ func (srv *Server) onConnection(conn net.Conn) {
 		tracer.Errorf("an error happens when handling new connection, err=%s", err.Error())
 		return
 	}
-	tracer.Info("handshake successfully, piping now")
+	tracer.Debugf("handshake successfully, piping now")
 }
 
 func (srv *Server) handshake(ctx context.Context, conn net.Conn, tracer *logrus.Entry) error {
