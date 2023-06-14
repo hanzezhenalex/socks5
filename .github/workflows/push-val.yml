@@ -7,5 +7,5 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-      - name: 2A
-        run: cd ./src/socks && go test
+      - name: server-test
+        run: cd ./src/socks5 && go test
