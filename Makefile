@@ -1,4 +1,4 @@
 binaries: | agent
 
 agent:
-	go build -o $(GOPATH)/bin/vflow ./src/cmd/agent/main.go
+	go build -o $(GOPATH)/bin/agent ./src/cmd/agent/main.go

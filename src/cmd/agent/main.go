@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 
 	"github.com/hanzezhenalex/socks5/src/agent"
 
@@ -32,14 +33,18 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("unknown mode: %s", mode)
 		}
 
-		if ip := net.ParseIP(fmt.Sprintf("%s:%s", ip, socksSrvPort)); ip == nil {
+		if res := net.ParseIP(ip); res == nil {
 			return fmt.Errorf("illegal socks server addr, %s:%s", ip, socksSrvPort)
 		}
 		config.Socks5Config.IP = ip
+
+		if err := checkPort(socksSrvPort); err != nil {
+			return fmt.Errorf("illegal socksSrvPort, %s", err.Error())
+		}
 		config.Socks5Config.Port = socksSrvPort
 
-		if ip := net.ParseIP(fmt.Sprintf("%s:%s", ip, controlPort)); ip == nil {
-			return fmt.Errorf("illegal agent control server addr, %s:%s", ip, controlPort)
+		if err := checkPort(controlPort); err != nil {
+			return fmt.Errorf("illegal control server Port, %s", err.Error())
 		}
 		config.ControlServerPort = controlPort
 
@@ -65,4 +70,15 @@ func main() {
 		fmt.Printf("error exit, %s", err.Error())
 		os.Exit(1)
 	}
+}
+
+func checkPort(port string) error {
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		return err
+	}
+	if p < 1000 || p > 65535 {
+		return fmt.Errorf("port out of range")
+	}
+	return nil
 }
