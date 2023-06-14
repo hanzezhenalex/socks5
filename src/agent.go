@@ -1,28 +1,61 @@
 package src
 
 import (
-	"github.com/gin-gonic/gin"
+	"fmt"
 
 	"github.com/hanzezhenalex/socks5/src/socks5"
 )
 
+type Mode string
+
+const (
+	LocalMode   = "local"
+	ClusterMode = "cluster"
+)
+
 type Config struct {
-	socksCfg socks5.Config
+	Mode              Mode
+	ControlServerPort string
+	Socks5Config      socks5.Config
 }
 
 type Agent struct {
-	socks      *socks5.Server
-	controller *gin.Engine
+	config   Config
+	socksSrv *socks5.Server
 }
 
-func NewAgent(cfg Config) (*Agent, error) {
-	connMngr := &ConnectionManagement{}
-	authMngr := &struct{}{}
-	socks, err := socks5.NewServer(cfg.socksCfg, connMngr, authMngr)
-	if err != nil {
-		return nil, err
-	}
+func NewAgent(config Config) *Agent {
 	return &Agent{
-		socks: socks,
-	}, nil
+		config: config,
+	}
+}
+
+func (agent *Agent) Run() error {
+	var (
+		connMngr ConnectionManager
+		authMngr AuthManager
+		errCh    = make(chan error)
+	)
+
+	switch agent.config.Mode {
+	case LocalMode:
+		connMngr = NewConnectionManagement()
+		authMngr = struct{}{}
+	default:
+		return fmt.Errorf("%s mode is not supported yet", agent.config.Mode)
+	}
+
+	socksSrv, err := socks5.NewServer(agent.config.Socks5Config, connMngr, authMngr, errCh)
+	if err != nil {
+		return err
+	}
+	agent.socksSrv = socksSrv
+
+	err = <-errCh
+	close(errCh)
+	return err
+}
+
+func (agent *Agent) Close() {
+	agent.socksSrv.Close()
 }

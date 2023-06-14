@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/hanzezhenalex/socks5/src"
-	"github.com/hanzezhenalex/socks5/src/socks5/protocol"
 
 	"github.com/stretchr/testify/require"
 )
@@ -50,8 +49,8 @@ func (srv *TcpEchoServer) onConnection() error {
 	return conn.Close()
 }
 
-func createSocksServer() (*Server, error) {
-	connMngr := &src.ConnectionManagement{}
+func createSocksServer() (*Server, error, chan error) {
+	connMngr := src.NewConnectionManagement()
 	authMngr := &struct{}{}
 	cfg := Config{
 		IP:      "localhost",
@@ -59,13 +58,15 @@ func createSocksServer() (*Server, error) {
 		Command: []string{"connect"},
 		Auth:    []string{"noAuth"},
 	}
-	return NewServer(cfg, connMngr, authMngr)
+	ch := make(chan error, 1)
+	srv, err := NewServer(cfg, connMngr, authMngr, ch)
+	return srv, err, ch
 }
 
 func Test_CommandConnect(t *testing.T) {
 	rq := require.New(t)
 
-	srv, err := createSocksServer()
+	srv, err, ch := createSocksServer()
 	rq.NoError(err)
 	defer func() {
 		srv.Close()
@@ -83,31 +84,31 @@ func Test_CommandConnect(t *testing.T) {
 		rq.NoError(err)
 
 		_, err = conn.Write([]byte{
-			protocol.Socks5Version,
+			version,
 			0x01,
-			protocol.Connect.Method,
+			connect,
 		})
 		rq.NoError(err)
 
 		_, err = io.ReadFull(conn, buf[:2])
 		rq.NoError(err)
-		rq.Equal(uint8(protocol.Socks5Version), buf[0])
-		rq.Equal(protocol.Connect.Method, buf[1])
+		rq.Equal(version, buf[0])
+		rq.Equal(connect, buf[1])
 
 		_, err = conn.Write([]byte{
-			protocol.Socks5Version,
-			protocol.Connect.Method,
-			protocol.Rsv,
+			version,
+			connect,
+			rsv,
 		})
 		rq.NoError(err)
-		addr := protocol.ParseAddr(echoServer.addr)
+		addr := ParseAddr(echoServer.addr)
 		rq.NotNil(addr)
 		_, err = conn.Write(addr)
 		rq.NoError(err)
 
-		success, _, err := protocol.ReadCommandNegotiationReq(conn, buf)
+		success, _, err := readCommandNegotiationReq(conn, buf)
 		rq.NoError(err)
-		rq.Equal(protocol.CommandNegoSucceed, success)
+		rq.Equal(commandNegoSucceed, success)
 
 		testMsg := "hello socks5"
 		_, err = conn.Write([]byte(testMsg))
@@ -119,4 +120,6 @@ func Test_CommandConnect(t *testing.T) {
 	}()
 
 	rq.NoError(echoServer.onConnection())
+	srv.Close()
+	close(ch)
 }

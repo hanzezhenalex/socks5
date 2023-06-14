@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/hanzezhenalex/socks5/src"
-	"github.com/hanzezhenalex/socks5/src/socks5/protocol"
 )
 
 type Config struct {
@@ -25,212 +24,211 @@ func (c Config) Addr() string {
 }
 
 type Server struct {
-	connMngr        src.ConnectionManager
-	authMngr        src.AuthManager
-	listener        net.Listener
-	config          Config
-	handlerLock     sync.Mutex
-	commandHandlers map[byte]protocol.CommandHandler
-	authHandlers    map[byte]protocol.AuthHandler
+	config   Config
+	connMngr src.ConnectionManager
+	authMngr src.AuthManager
+
+	listener net.Listener
+
+	mutex          sync.Mutex
+	commanders     map[uint8]Commander
+	authenticators map[uint8]Authenticator
 }
 
-func NewServer(cfg Config, connMngr src.ConnectionManager, authMngr src.AuthManager) (*Server, error) {
+func NewServer(cfg Config, connMngr src.ConnectionManager, authMngr src.AuthManager, errCh chan error) (*Server, error) {
 	srv := &Server{
-		config:          cfg,
-		connMngr:        connMngr,
-		authMngr:        authMngr,
-		commandHandlers: make(map[byte]protocol.CommandHandler),
-		authHandlers:    make(map[byte]protocol.AuthHandler),
+		config:         cfg,
+		connMngr:       connMngr,
+		authMngr:       authMngr,
+		commanders:     make(map[byte]Commander),
+		authenticators: make(map[byte]Authenticator),
 	}
 
-	logrus.Infof("register auth handlers, handlers=[%s]", strings.Join(cfg.Auth, ","))
 	for _, name := range cfg.Auth {
-		if err := srv.AddAuthHandler(name); err != nil {
+		if err := srv.AddAuthenticator(name); err != nil {
 			return nil, err
 		}
 	}
-
-	logrus.Infof("register command handlers, handlers=[%s]", strings.Join(cfg.Command, ","))
 	for _, name := range cfg.Command {
-		if err := srv.AddCommandHandler(name); err != nil {
+		if err := srv.AddCommander(name); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := srv.startTCPServer(); err != nil {
-		return nil, fmt.Errorf("fail to start tcp server: %w", err)
-	}
-
+	srv.Start(errCh)
 	return srv, nil
 }
 
-func (srv *Server) startTCPServer() error {
-	logrus.Infof("start socks server, commands=%s", strings.Join(srv.config.Command, ","))
-	l, err := net.Listen("tcp", srv.config.Addr())
-	if err != nil {
-		return err
+func (srv *Server) Start(errCh chan error) {
+	logrus.Infof("start socks server, ip=%s, commands=%s, auth=%s",
+		srv.config.Addr(),
+		strings.Join(srv.config.Command, ","),
+		strings.Join(srv.config.Auth, ","),
+	)
+
+	if listener, err := net.Listen("tcp", srv.config.Addr()); err != nil {
+		logrus.Errorf("an error happened when starting socks server, err=%s", err.Error())
+		errCh <- err
+		close(errCh)
+		return
+	} else {
+		srv.listener = listener
 	}
-	srv.listener = l
 
 	go func() {
 		for {
-			conn, err := l.Accept()
+			conn, err := srv.listener.Accept()
 			if err != nil {
-				logrus.Warningf("fail to accept tcp conn, err=%s", err.Error())
+				if src.ReadOnClosedSocketError(err) {
+					err = nil
+					logrus.Info("socks server closed")
+				} else {
+					logrus.Errorf("an error happened when running socks server, err=%s", err.Error())
+				}
+				errCh <- err
 				return
 			}
-			go srv.handleConn(conn)
+			go srv.onConnection(conn)
 		}
 	}()
-
-	return nil
 }
 
-func (srv *Server) handleConn(conn net.Conn) {
-	ctx := context.Background()
+func (srv *Server) onConnection(conn net.Conn) {
+	ctx := src.NewTraceContext(context.Background())
+	tracer := logrus.WithField("id", src.GetIDFromContext(ctx))
 
-	var (
-		authInfo src.AuthInfo
-	)
-
-	handshake := func() error {
-		buf := make([]byte, protocol.MaxAddrLen)
-
-		methods, err := protocol.ReadMethodNegotiationReq(conn, buf)
-		if err != nil {
-			return fmt.Errorf("fail to read method negotiation req, err=%w", err)
-		}
-
-		authHandler, err := srv.selectAuthMethod(methods)
-		if err != nil {
-			return err
-		}
-
-		if err := protocol.WriteMethodNegotiationReply(authHandler.Method, conn); err != nil {
-			return fmt.Errorf("fail to write method negotiation reply, err=%w", err)
-		}
-
-		authInfo, err = authHandler.Handle(ctx, conn, srv.authMngr)
-		if err != nil {
-			return err
-		}
-
-		cmd, targetAddr, err := protocol.ReadCommandNegotiationReq(conn, buf)
-		if err != nil {
-			return fmt.Errorf("fail to read command negotiation req, err=%w", err)
-		}
-
-		commandHandler, err := srv.getCommandMethod(cmd)
-		if err != nil {
-			return err
-		}
-
-		to, addr, err := commandHandler.Handle(ctx, authInfo, targetAddr, conn, srv.connMngr)
-		if err != nil {
-			return err
-		}
-		if err := protocol.WriteCommandNegotiationReply(conn, buf, addr.String()); err != nil {
-			_ = to.Close()
-			return err
-		}
-		return nil
-	}
-
-	if err := handshake(); err != nil {
-		if _, ok := err.(protocol.NetworkError); !ok {
+	tracer.Infof("new connection from %s", conn.RemoteAddr().String())
+	if err := srv.handshake(ctx, conn, tracer); err != nil {
+		if _, ok := err.(NetworkError); !ok {
+			if socksErr, ok := err.(socksError); ok {
+				socksErr.sendErrorReply(conn)
+			}
 			_ = conn.Close()
 		}
-		if socksErr, ok := err.(protocol.SocksError); ok {
-			socksErr.SendErrorReply(conn)
-		}
-		return
+		tracer.Errorf("an error happens when handling new connection, err=%s", err.Error())
 	}
-
+	tracer.Info("handshake successfully, piping now")
 }
 
-func (srv *Server) AddAuthHandler(name string) error {
-	srv.handlerLock.Lock()
-	defer srv.handlerLock.Unlock()
-
-	handler, ok := protocol.AuthHandlers[name]
-	if !ok {
-		return fmt.Errorf("illeagal auth handler: %s", name)
+func (srv *Server) handshake(ctx context.Context, conn net.Conn, tracer *logrus.Entry) error {
+	var buf = make([]byte, maxAddrLen)
+	authInfo, err := srv.authenticate(ctx, conn, buf)
+	if err != nil {
+		return err
 	}
-	srv.authHandlers[handler.Method] = handler
-	return nil
+	to, err := srv.handleCommand(ctx, conn, buf, authInfo, tracer)
+	if err != nil {
+		return err
+	}
+	return srv.connMngr.Pipe(ctx, authInfo, conn, to)
 }
 
-func (srv *Server) RemoveAuthHandler(name string) error {
-	srv.handlerLock.Lock()
-	defer srv.handlerLock.Unlock()
-
-	for method, handler := range srv.authHandlers {
-		if handler.Name == name {
-			delete(srv.authHandlers, method)
-			return nil
-		}
+func (srv *Server) authenticate(ctx context.Context, conn net.Conn, buf []byte) (src.AuthInfo, error) {
+	var (
+		authInfo      src.AuthInfo
+		authenticator Authenticator
+	)
+	methods, err := readMethodNegotiationReq(conn, buf)
+	if err != nil {
+		return authInfo, err
 	}
-	return fmt.Errorf("no such auth handler: %s", name)
-}
 
-func (srv *Server) AddCommandHandler(name string) error {
-	srv.handlerLock.Lock()
-	defer srv.handlerLock.Unlock()
-
-	handler, ok := protocol.CommandHandlers[name]
-	if !ok {
-		return fmt.Errorf("illeagal command handler: %s", name)
-	}
-	srv.commandHandlers[handler.Method] = handler
-	return nil
-}
-
-func (srv *Server) RemoveCommandHandler(name string) error {
-	srv.handlerLock.Lock()
-	defer srv.handlerLock.Unlock()
-
-	for method, handler := range srv.commandHandlers {
-		if handler.Name == name {
-			delete(srv.commandHandlers, method)
-			return nil
-		}
-	}
-	return fmt.Errorf("no such command handler: %s", name)
-}
-
-func (srv *Server) selectAuthMethod(methods []byte) (protocol.AuthHandler, error) {
-	srv.handlerLock.Lock()
-	defer srv.handlerLock.Unlock()
-
-	for m, handler := range srv.authHandlers {
-		for _, allowed := range methods {
-			if m == allowed {
-				return handler, nil
+LOOP:
+	for _, allowed := range methods {
+		for supported, _authenticator := range srv.authenticators {
+			if supported == allowed {
+				authenticator = _authenticator
+				break LOOP
 			}
 		}
 	}
 
-	return protocol.AuthHandler{}, protocol.NoAcceptedMethod
+	if authenticator == nil {
+		return authInfo, noAcceptedMethod
+	}
+
+	if err := writeMethodNegotiationReply(authenticator.Method(), conn, buf); err != nil {
+		return authInfo, err
+	}
+	return authenticator.Handle(ctx, conn)
 }
 
-func (srv *Server) getCommandMethod(method byte) (protocol.CommandHandler, error) {
-	srv.handlerLock.Lock()
-	defer srv.handlerLock.Unlock()
+func (srv *Server) handleCommand(
+	ctx context.Context,
+	conn net.Conn,
+	buf []byte,
+	authInfo src.AuthInfo,
+	tracer *logrus.Entry,
+) (net.Conn, error) {
+	var commander Commander
 
-	for m, handler := range srv.commandHandlers {
-		if m == method {
-			return handler, nil
+	cmd, target, err := readCommandNegotiationReq(conn, buf)
+	if err != nil {
+		return nil, err
+	}
+
+LOOP:
+	for supported, _commander := range srv.commanders {
+		if supported == cmd {
+			commander = _commander
+			break LOOP
 		}
 	}
 
-	return protocol.CommandHandler{}, protocol.CommandNotSupported
+	if commander == nil {
+		return nil, commandNotSupported
+	}
+
+	tracer.Infof("socks request: cmd=%s, target=%s", commander.Name(), target.String())
+	return commander.Handle(ctx, authInfo, target, conn, buf)
+}
+
+func (srv *Server) AddAuthenticator(name string) error {
+	srv.mutex.Lock()
+	defer srv.mutex.Unlock()
+
+	var authenticator Authenticator
+
+	switch name {
+	case authNoAuth:
+		authenticator = NoAuth{}
+	default:
+		return fmt.Errorf("illeagal authenticator: %s", name)
+	}
+	srv.authenticators[authenticator.Method()] = authenticator
+	return nil
+}
+
+func (srv *Server) RemoveAuthenticator(name string) error {
+	srv.mutex.Lock()
+	defer srv.mutex.Unlock()
+
+	for method, authenticator := range srv.authenticators {
+		if authenticator.Name() == name {
+			delete(srv.authenticators, method)
+			return nil
+		}
+	}
+	return fmt.Errorf("no such authenticator: %s", name)
+}
+
+func (srv *Server) AddCommander(name string) error {
+	srv.mutex.Lock()
+	defer srv.mutex.Unlock()
+
+	var commander Commander
+
+	switch name {
+	case cmdConnect:
+		commander = NewConnectCommandor(srv.connMngr)
+	default:
+		return fmt.Errorf("illeagal commander: %s", name)
+	}
+	srv.commanders[commander.Method()] = commander
+	return nil
 }
 
 func (srv *Server) Close() {
 	_ = srv.listener.Close()
-	srv.workers.Range(func(key, value any) bool {
-		pipe := value.(*Pipe)
-		pipe.cancel()
-		return true
-	})
+	srv.connMngr.Close()
 }
