@@ -134,6 +134,8 @@ func (connMngr *LocalManagement) Pipe(ctx context.Context, authInfo src.AuthInfo
 	if p == nil {
 		return fmt.Errorf("connection manager has been closed")
 	}
+	logrus.Debugf("pipe created, target=%s", p.target)
+
 	go p.pipe(ctx, ch)
 	return nil
 }
