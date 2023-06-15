@@ -116,7 +116,7 @@ func (srv *Server) handshake(ctx context.Context, conn net.Conn, tracer *logrus.
 	if err != nil {
 		return err
 	}
-	return srv.connMngr.Pipe(ctx, authInfo, conn, to, target.String())
+	return srv.connMngr.Pipe(ctx, authInfo, conn, to, target)
 }
 
 func (srv *Server) authenticate(ctx context.Context, conn net.Conn, buf []byte) (src.AuthInfo, error) {
@@ -155,12 +155,12 @@ func (srv *Server) handleCommand(
 	buf []byte,
 	authInfo src.AuthInfo,
 	tracer *logrus.Entry,
-) (net.Conn, Addr, error) {
+) (net.Conn, string, error) {
 	var commander Commander
 
 	cmd, target, err := readCommandNegotiationReq(conn, buf)
 	if err != nil {
-		return nil, nil, err
+		return nil, "", err
 	}
 
 LOOP:
@@ -172,12 +172,12 @@ LOOP:
 	}
 
 	if commander == nil {
-		return nil, nil, commandNotSupported
+		return nil, "", commandNotSupported
 	}
-
-	tracer.Infof("socks request: cmd=%s, target=%s", commander.Name(), target.String())
+	addr := target.String()
+	tracer.Infof("socks request: cmd=%s, target=%s", commander.Name(), addr)
 	to, err := commander.Handle(ctx, authInfo, target, conn, buf)
-	return to, target, err
+	return to, addr, err
 }
 
 func (srv *Server) AddAuthenticator(name string) error {
