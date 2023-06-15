@@ -14,11 +14,7 @@ func RegisterConnectionManagerEndpoints(router *gin.RouterGroup, connMngr Manage
 
 func ListPipes(connMngr Manager) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		data, err := connMngr.ListConnections(context.Request.Context(), src.AuthInfo{})
-		if err != nil {
-			context.Status(http.StatusInternalServerError)
-		} else {
-			context.JSON(http.StatusOK, data)
-		}
+		connections := connMngr.ListConnections(context.Request.Context(), src.AuthInfo{})
+		context.JSON(http.StatusOK, connections)
 	}
 }

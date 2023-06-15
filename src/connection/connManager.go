@@ -2,7 +2,6 @@ package connection
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -19,7 +18,13 @@ type Manager interface {
 	Pipe(ctx context.Context, authInfo src.AuthInfo, from, to net.Conn, target string) error
 	DialTCP(ctx context.Context, authInfo src.AuthInfo, addr string) (net.Conn, net.Addr, error)
 	Close()
-	ListConnections(ctx context.Context, authInfo src.AuthInfo) ([]byte, error)
+	ListConnections(ctx context.Context, authInfo src.AuthInfo) []PipeInfo
+}
+
+type PipeInfo struct {
+	UUID   uuid.UUID `json:"uuid"`
+	From   string    `json:"source"`
+	Target string    `json:"target"`
 }
 
 type pipe struct {
@@ -30,16 +35,12 @@ type pipe struct {
 	target   string
 }
 
-func (p *pipe) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		UUID   uuid.UUID `json:"uuid"`
-		From   string    `json:"source"`
-		Target string    `json:"target"`
-	}{
+func (p *pipe) info() PipeInfo {
+	return PipeInfo{
 		UUID:   p.uuid,
 		From:   p.from.RemoteAddr().String(),
 		Target: p.target,
-	})
+	}
 }
 
 func (p *pipe) copyTo(ch chan error, from, to net.Conn) {
@@ -161,11 +162,17 @@ func (connMngr *LocalManagement) Close() {
 	logrus.Info("connection management closed")
 }
 
-func (connMngr *LocalManagement) ListConnections(ctx context.Context, authInfo src.AuthInfo) ([]byte, error) {
+func (connMngr *LocalManagement) ListConnections(ctx context.Context, authInfo src.AuthInfo) []PipeInfo {
 	connMngr.mutex.Lock()
 	defer connMngr.mutex.Unlock()
 
-	return json.Marshal(connMngr.pipes)
+	var infos []PipeInfo
+
+	for _, p := range connMngr.pipes {
+		infos = append(infos, p.info())
+	}
+
+	return infos
 }
 
 func ReadOnClosedSocketError(err error) bool {
