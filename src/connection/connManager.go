@@ -1,28 +1,45 @@
-package src
+package connection
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"strings"
 	"sync"
 
+	"github.com/hanzezhenalex/socks5/src"
+
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 )
 
-type ConnectionManager interface {
-	Pipe(ctx context.Context, authInfo AuthInfo, from, to net.Conn) error
-	DialTCP(ctx context.Context, authInfo AuthInfo, addr string) (net.Conn, net.Addr, error)
+type Manager interface {
+	Pipe(ctx context.Context, authInfo src.AuthInfo, from, to net.Conn, target string) error
+	DialTCP(ctx context.Context, authInfo src.AuthInfo, addr string) (net.Conn, net.Addr, error)
 	Close()
+	ListConnections(ctx context.Context, authInfo src.AuthInfo) ([]byte, error)
 }
 
 type pipe struct {
-	connMngr *ConnectionManagement
+	connMngr *LocalManagement
 	uuid     uuid.UUID
-	authInfo AuthInfo
+	authInfo src.AuthInfo
 	from, to net.Conn
+	target   string
+}
+
+func (p *pipe) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		UUID   uuid.UUID `json:"uuid"`
+		From   string    `json:"source"`
+		Target string    `json:"target"`
+	}{
+		UUID:   p.uuid,
+		From:   p.from.RemoteAddr().String(),
+		Target: p.target,
+	})
 }
 
 func (p *pipe) copyTo(ch chan error, from, to net.Conn) {
@@ -73,7 +90,7 @@ LOOP:
 	p.connMngr.wg.Done()
 }
 
-type ConnectionManagement struct {
+type LocalManagement struct {
 	wg     sync.WaitGroup
 	mutex  sync.Mutex
 	pipes  map[uuid.UUID]*pipe
@@ -81,21 +98,22 @@ type ConnectionManagement struct {
 	stopCh chan struct{}
 }
 
-func NewConnectionManagement() *ConnectionManagement {
-	return &ConnectionManagement{
+func NewConnectionManagement() *LocalManagement {
+	return &LocalManagement{
 		pipes:  make(map[uuid.UUID]*pipe),
 		stopCh: make(chan struct{}),
 	}
 }
 
-func (connMngr *ConnectionManagement) Pipe(ctx context.Context, authInfo AuthInfo, from, to net.Conn) error {
+func (connMngr *LocalManagement) Pipe(ctx context.Context, authInfo src.AuthInfo, from, to net.Conn, target string) error {
 	newPipe := func() *pipe {
 		p := &pipe{
 			connMngr: connMngr,
 			from:     from,
 			to:       to,
 			authInfo: authInfo,
-			uuid:     GetIDFromContext(ctx),
+			uuid:     src.GetIDFromContext(ctx),
+			target:   target,
 		}
 
 		connMngr.mutex.Lock()
@@ -119,7 +137,7 @@ func (connMngr *ConnectionManagement) Pipe(ctx context.Context, authInfo AuthInf
 	return nil
 }
 
-func (connMngr *ConnectionManagement) DialTCP(_ context.Context, _ AuthInfo, addr string) (net.Conn, net.Addr, error) {
+func (connMngr *LocalManagement) DialTCP(_ context.Context, _ src.AuthInfo, addr string) (net.Conn, net.Addr, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, nil, err
@@ -127,7 +145,7 @@ func (connMngr *ConnectionManagement) DialTCP(_ context.Context, _ AuthInfo, add
 	return conn, conn.RemoteAddr(), nil
 }
 
-func (connMngr *ConnectionManagement) Close() {
+func (connMngr *LocalManagement) Close() {
 	logrus.Info("start closing connection management")
 	connMngr.mutex.Lock()
 	if connMngr.closed == false {
@@ -141,6 +159,13 @@ func (connMngr *ConnectionManagement) Close() {
 	connMngr.mutex.Unlock()
 	connMngr.wg.Wait()
 	logrus.Info("connection management closed")
+}
+
+func (connMngr *LocalManagement) ListConnections(ctx context.Context, authInfo src.AuthInfo) ([]byte, error) {
+	connMngr.mutex.Lock()
+	defer connMngr.mutex.Unlock()
+
+	return json.Marshal(connMngr.pipes)
 }
 
 func ReadOnClosedSocketError(err error) bool {

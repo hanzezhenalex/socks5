@@ -3,6 +3,7 @@ package socks5
 import (
 	"context"
 	"fmt"
+	"github.com/hanzezhenalex/socks5/src/connection"
 	"net"
 	"strings"
 	"sync"
@@ -25,7 +26,7 @@ func (c Config) Addr() string {
 
 type Server struct {
 	config   Config
-	connMngr src.ConnectionManager
+	connMngr connection.Manager
 	authMngr src.AuthManager
 
 	listener net.Listener
@@ -35,7 +36,7 @@ type Server struct {
 	authenticators map[uint8]Authenticator
 }
 
-func NewServer(cfg Config, connMngr src.ConnectionManager, authMngr src.AuthManager, errCh chan error) (*Server, error) {
+func NewServer(cfg Config, connMngr connection.Manager, authMngr src.AuthManager, errCh chan error) (*Server, error) {
 	srv := &Server{
 		config:         cfg,
 		connMngr:       connMngr,
@@ -55,11 +56,10 @@ func NewServer(cfg Config, connMngr src.ConnectionManager, authMngr src.AuthMana
 		}
 	}
 
-	srv.Start(errCh)
 	return srv, nil
 }
 
-func (srv *Server) Start(errCh chan error) {
+func (srv *Server) Start() error {
 	logrus.Infof("start socks server, ip=%s, commands=%s, auth=%s",
 		srv.config.Addr(),
 		strings.Join(srv.config.Command, ","),
@@ -68,29 +68,24 @@ func (srv *Server) Start(errCh chan error) {
 
 	if listener, err := net.Listen("tcp", srv.config.Addr()); err != nil {
 		logrus.Errorf("an error happened when starting socks server, err=%s", err.Error())
-		errCh <- err
-		close(errCh)
-		return
+		return err
 	} else {
 		srv.listener = listener
 	}
 
-	go func() {
-		for {
-			conn, err := srv.listener.Accept()
-			if err != nil {
-				if src.ReadOnClosedSocketError(err) {
-					err = nil
-					logrus.Info("socks server closed")
-				} else {
-					logrus.Errorf("an error happened when running socks server, err=%s", err.Error())
-				}
-				errCh <- err
-				return
+	for {
+		conn, err := srv.listener.Accept()
+		if err != nil {
+			if connection.ReadOnClosedSocketError(err) {
+				err = nil
+				logrus.Info("socks server closed")
+			} else {
+				logrus.Errorf("an error happened when running socks server, err=%s", err.Error())
 			}
-			go srv.onConnection(conn)
+			return err
 		}
-	}()
+		go srv.onConnection(conn)
+	}
 }
 
 func (srv *Server) onConnection(conn net.Conn) {
@@ -117,11 +112,11 @@ func (srv *Server) handshake(ctx context.Context, conn net.Conn, tracer *logrus.
 	if err != nil {
 		return err
 	}
-	to, err := srv.handleCommand(ctx, conn, buf, authInfo, tracer)
+	to, target, err := srv.handleCommand(ctx, conn, buf, authInfo, tracer)
 	if err != nil {
 		return err
 	}
-	return srv.connMngr.Pipe(ctx, authInfo, conn, to)
+	return srv.connMngr.Pipe(ctx, authInfo, conn, to, target.String())
 }
 
 func (srv *Server) authenticate(ctx context.Context, conn net.Conn, buf []byte) (src.AuthInfo, error) {
@@ -160,12 +155,12 @@ func (srv *Server) handleCommand(
 	buf []byte,
 	authInfo src.AuthInfo,
 	tracer *logrus.Entry,
-) (net.Conn, error) {
+) (net.Conn, Addr, error) {
 	var commander Commander
 
 	cmd, target, err := readCommandNegotiationReq(conn, buf)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 LOOP:
@@ -177,11 +172,12 @@ LOOP:
 	}
 
 	if commander == nil {
-		return nil, commandNotSupported
+		return nil, nil, commandNotSupported
 	}
 
 	tracer.Infof("socks request: cmd=%s, target=%s", commander.Name(), target.String())
-	return commander.Handle(ctx, authInfo, target, conn, buf)
+	to, err := commander.Handle(ctx, authInfo, target, conn, buf)
+	return to, target, err
 }
 
 func (srv *Server) AddAuthenticator(name string) error {

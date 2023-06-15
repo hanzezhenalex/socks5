@@ -1,11 +1,10 @@
 package socks5
 
 import (
+	"github.com/hanzezhenalex/socks5/src/connection"
 	"io"
 	"net"
 	"testing"
-
-	"github.com/hanzezhenalex/socks5/src"
 
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +49,7 @@ func (srv *TcpEchoServer) onConnection() error {
 }
 
 func createSocksServer() (*Server, error, chan error) {
-	connMngr := src.NewConnectionManagement()
+	connMngr := connection.NewConnectionManagement()
 	authMngr := &struct{}{}
 	cfg := Config{
 		IP:      "localhost",
