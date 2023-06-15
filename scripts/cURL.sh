@@ -10,3 +10,5 @@ curl http://www.baidu.com -x socks5h://localhost:1080
 
 # for username/password, use
 # curl http://www.baidu.com -x socks5h://username:password@localhost:1080
+
+#curl --insecure -v -X GET  https://localhost:8090/v1/connection/list

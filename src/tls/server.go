@@ -34,7 +34,7 @@ func (srv *Server) ListenAndServe(ctx context.Context) error {
 	listener, err := tls.Listen("tcp", srv.addr, &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
 		ClientCAs:    caPool,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientAuth:   tls.NoClientCert,
 	})
 	if err != nil {
 		return err
