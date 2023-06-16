@@ -11,24 +11,16 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var connection = &cobra.Command{
 	Use:   "connection",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Cli tool for agent connection operations",
+	Long: `List/Shutdown(not implement yet) connections agent is proxying now,
+auth is not working, in the future, users can only op on his/her own connections`,
 }
 
 var list = &cobra.Command{
 	Use:   "list",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "list the connections agent is proxying now",
+	Long: `List connections agent is proxying now,
+auth is not working, in the future, users can only op on his/her own connections.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		response, err := socksClient.Operations.GetV1ConnectionList(nil)
 		if err != nil {
@@ -49,7 +41,7 @@ to quickly create a Cobra application.`,
 		t.AppendRows(rows)
 
 		t.AppendSeparator()
-		t.AppendFooter(table.Row{"", "", "Total", len(response.Payload)})
+		t.AppendFooter(table.Row{"", "Total", len(response.Payload)})
 
 		t.Render()
 		return nil

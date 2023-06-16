@@ -21,13 +21,10 @@ var (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "socks-ctl",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Cli for socks5 agent",
+	Long: `Socks-ctl is a cli tool for socks5 server. Users can check the status of agent/server
+And also control the behaviors of socks server.
+`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if net.ParseIP(ip) == nil {
 			return fmt.Errorf("illeagal ip: %s", ip)
