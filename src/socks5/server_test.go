@@ -59,13 +59,16 @@ func createSocksServer() (*Server, error, chan error) {
 	}
 	ch := make(chan error, 1)
 	srv, err := NewServer(cfg, connMngr, authMngr)
+	go func() {
+		ch <- srv.Start()
+	}()
 	return srv, err, ch
 }
 
 func Test_CommandConnect(t *testing.T) {
 	rq := require.New(t)
 
-	srv, err, _ := createSocksServer()
+	srv, err, ch := createSocksServer()
 	rq.NoError(err)
 
 	echoServer := TcpEchoServer{
@@ -117,4 +120,6 @@ func Test_CommandConnect(t *testing.T) {
 
 	rq.NoError(echoServer.onConnection())
 	srv.Close()
+	<-ch
+	close(ch)
 }
