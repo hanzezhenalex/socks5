@@ -1,11 +1,10 @@
 package socks5
 
 import (
+	"github.com/hanzezhenalex/socks5/src/connection"
 	"io"
 	"net"
 	"testing"
-
-	"github.com/hanzezhenalex/socks5/src"
 
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +49,7 @@ func (srv *TcpEchoServer) onConnection() error {
 }
 
 func createSocksServer() (*Server, error, chan error) {
-	connMngr := src.NewConnectionManagement()
+	connMngr := connection.NewConnectionManagement()
 	authMngr := &struct{}{}
 	cfg := Config{
 		IP:      "localhost",
@@ -59,7 +58,10 @@ func createSocksServer() (*Server, error, chan error) {
 		Auth:    []string{"noAuth"},
 	}
 	ch := make(chan error, 1)
-	srv, err := NewServer(cfg, connMngr, authMngr, ch)
+	srv, err := NewServer(cfg, connMngr, authMngr)
+	go func() {
+		ch <- srv.Start()
+	}()
 	return srv, err, ch
 }
 
@@ -118,5 +120,6 @@ func Test_CommandConnect(t *testing.T) {
 
 	rq.NoError(echoServer.onConnection())
 	srv.Close()
+	<-ch
 	close(ch)
 }

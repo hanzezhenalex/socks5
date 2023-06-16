@@ -1,0 +1,35 @@
+swagger: "2.0"
+info:
+  version: "1.0.0"
+  title: "Socks Agent API (v1)"
+  description:
+    "Agent provides apis to control sock agent"
+schemes:
+  - "https"
+paths:
+  /v1/connection/list:
+    get:
+      description: "Get the proxy connections."
+      produces:
+        - "application/json"
+      responses:
+        200:
+          description: "Get all the connections."
+          schema:
+            $ref: "#/definitions/connections"
+        500:
+          description: "Error."
+definitions:
+  connections:
+    type: "array"
+    items:
+      $ref: "#/definitions/connection"
+  connection:
+    type: "object"
+    properties:
+      uuid:
+        type: "string"
+      source:
+        type: "string"
+      target:
+        type: "string"

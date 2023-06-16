@@ -2,6 +2,7 @@ package socks5
 
 import (
 	"context"
+	"github.com/hanzezhenalex/socks5/src/connection"
 	"net"
 	"strings"
 
@@ -21,10 +22,10 @@ type Commander interface {
 }
 
 type ConnectCommandor struct {
-	connMngr src.ConnectionManager
+	connMngr connection.Manager
 }
 
-func NewConnectCommandor(connMngr src.ConnectionManager) ConnectCommandor {
+func NewConnectCommandor(connMngr connection.Manager) ConnectCommandor {
 	return ConnectCommandor{connMngr: connMngr}
 }
 

@@ -3,6 +3,7 @@ package socks5
 import (
 	"context"
 	"fmt"
+	"github.com/hanzezhenalex/socks5/src/connection"
 	"net"
 	"strings"
 	"sync"
@@ -25,7 +26,7 @@ func (c Config) Addr() string {
 
 type Server struct {
 	config   Config
-	connMngr src.ConnectionManager
+	connMngr connection.Manager
 	authMngr src.AuthManager
 
 	listener net.Listener
@@ -35,7 +36,7 @@ type Server struct {
 	authenticators map[uint8]Authenticator
 }
 
-func NewServer(cfg Config, connMngr src.ConnectionManager, authMngr src.AuthManager, errCh chan error) (*Server, error) {
+func NewServer(cfg Config, connMngr connection.Manager, authMngr src.AuthManager) (*Server, error) {
 	srv := &Server{
 		config:         cfg,
 		connMngr:       connMngr,
@@ -44,22 +45,18 @@ func NewServer(cfg Config, connMngr src.ConnectionManager, authMngr src.AuthMana
 		authenticators: make(map[byte]Authenticator),
 	}
 
-	for _, name := range cfg.Auth {
-		if err := srv.AddAuthenticator(name); err != nil {
-			return nil, err
-		}
-	}
-	for _, name := range cfg.Command {
-		if err := srv.AddCommander(name); err != nil {
-			return nil, err
-		}
+	if err := srv.AddAuthenticator(cfg.Auth...); err != nil {
+		return nil, err
 	}
 
-	srv.Start(errCh)
+	if err := srv.AddCommander(cfg.Command...); err != nil {
+		return nil, err
+	}
+
 	return srv, nil
 }
 
-func (srv *Server) Start(errCh chan error) {
+func (srv *Server) Start() error {
 	logrus.Infof("start socks server, ip=%s, commands=%s, auth=%s",
 		srv.config.Addr(),
 		strings.Join(srv.config.Command, ","),
@@ -68,29 +65,24 @@ func (srv *Server) Start(errCh chan error) {
 
 	if listener, err := net.Listen("tcp", srv.config.Addr()); err != nil {
 		logrus.Errorf("an error happened when starting socks server, err=%s", err.Error())
-		errCh <- err
-		close(errCh)
-		return
+		return err
 	} else {
 		srv.listener = listener
 	}
 
-	go func() {
-		for {
-			conn, err := srv.listener.Accept()
-			if err != nil {
-				if src.ReadOnClosedSocketError(err) {
-					err = nil
-					logrus.Info("socks server closed")
-				} else {
-					logrus.Errorf("an error happened when running socks server, err=%s", err.Error())
-				}
-				errCh <- err
-				return
+	for {
+		conn, err := srv.listener.Accept()
+		if err != nil {
+			if connection.ReadOnClosedSocketError(err) {
+				err = nil
+				logrus.Info("socks server closed")
+			} else {
+				logrus.Errorf("an error happened when running socks server, err=%s", err.Error())
 			}
-			go srv.onConnection(conn)
+			return err
 		}
-	}()
+		go srv.onConnection(conn)
+	}
 }
 
 func (srv *Server) onConnection(conn net.Conn) {
@@ -117,11 +109,11 @@ func (srv *Server) handshake(ctx context.Context, conn net.Conn, tracer *logrus.
 	if err != nil {
 		return err
 	}
-	to, err := srv.handleCommand(ctx, conn, buf, authInfo, tracer)
+	to, target, err := srv.handleCommand(ctx, conn, buf, authInfo, tracer)
 	if err != nil {
 		return err
 	}
-	return srv.connMngr.Pipe(ctx, authInfo, conn, to)
+	return srv.connMngr.Pipe(ctx, authInfo, conn, to, target)
 }
 
 func (srv *Server) authenticate(ctx context.Context, conn net.Conn, buf []byte) (src.AuthInfo, error) {
@@ -160,12 +152,12 @@ func (srv *Server) handleCommand(
 	buf []byte,
 	authInfo src.AuthInfo,
 	tracer *logrus.Entry,
-) (net.Conn, error) {
+) (net.Conn, string, error) {
 	var commander Commander
 
 	cmd, target, err := readCommandNegotiationReq(conn, buf)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 LOOP:
@@ -177,26 +169,30 @@ LOOP:
 	}
 
 	if commander == nil {
-		return nil, commandNotSupported
+		return nil, "", commandNotSupported
 	}
-
-	tracer.Infof("socks request: cmd=%s, target=%s", commander.Name(), target.String())
-	return commander.Handle(ctx, authInfo, target, conn, buf)
+	addr := target.String()
+	tracer.Infof("socks request: cmd=%s, target=%s", commander.Name(), addr)
+	to, err := commander.Handle(ctx, authInfo, target, conn, buf)
+	return to, addr, err
 }
 
-func (srv *Server) AddAuthenticator(name string) error {
+func (srv *Server) AddAuthenticator(names ...string) error {
 	srv.mutex.Lock()
 	defer srv.mutex.Unlock()
 
-	var authenticator Authenticator
+	for _, name := range names {
+		var authenticator Authenticator
 
-	switch name {
-	case authNoAuth:
-		authenticator = NoAuth{}
-	default:
-		return fmt.Errorf("illeagal authenticator: %s", name)
+		switch name {
+		case authNoAuth:
+			authenticator = NoAuth{}
+		default:
+			return fmt.Errorf("illeagal authenticator: %s", name)
+		}
+		srv.authenticators[authenticator.Method()] = authenticator
 	}
-	srv.authenticators[authenticator.Method()] = authenticator
+
 	return nil
 }
 
@@ -213,23 +209,27 @@ func (srv *Server) RemoveAuthenticator(name string) error {
 	return fmt.Errorf("no such authenticator: %s", name)
 }
 
-func (srv *Server) AddCommander(name string) error {
+func (srv *Server) AddCommander(names ...string) error {
 	srv.mutex.Lock()
 	defer srv.mutex.Unlock()
 
-	var commander Commander
+	for _, name := range names {
+		var commander Commander
 
-	switch name {
-	case cmdConnect:
-		commander = NewConnectCommandor(srv.connMngr)
-	default:
-		return fmt.Errorf("illeagal commander: %s", name)
+		switch name {
+		case cmdConnect:
+			commander = NewConnectCommandor(srv.connMngr)
+		default:
+			return fmt.Errorf("illeagal commander: %s", name)
+		}
+		srv.commanders[commander.Method()] = commander
 	}
-	srv.commanders[commander.Method()] = commander
 	return nil
 }
 
 func (srv *Server) Close() {
-	_ = srv.listener.Close()
+	if srv.listener != nil {
+		_ = srv.listener.Close()
+	}
 	srv.connMngr.Close()
 }
