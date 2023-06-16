@@ -34,6 +34,7 @@ to quickly create a Cobra application.`,
 		if err != nil {
 			return fmt.Errorf("fail to make call to agent control server, %w", err)
 		}
+
 		t := table.NewWriter()
 		t.SetOutputMirror(os.Stdout)
 

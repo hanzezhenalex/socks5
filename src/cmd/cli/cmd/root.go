@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/hanzezhenalex/socks5/src/agent/client"
 	"net"
+	"net/http"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -35,7 +37,9 @@ to quickly create a Cobra application.`,
 			Host:    fmt.Sprintf("%s:%s", ip, port),
 			Schemes: []string{"https"},
 		}
-		socksClient = client.NewHTTPClientWithConfig(nil, cfg)
+		runtime := httptransport.New(cfg.Host, cfg.BasePath, cfg.Schemes)
+		runtime.Transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify = true
+		socksClient = client.New(runtime, nil)
 		return nil
 	},
 }
