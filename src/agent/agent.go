@@ -56,7 +56,7 @@ func (agent *Agent) Run() error {
 		return fmt.Errorf("%s mode is not supported yet", agent.config.Mode)
 	}
 
-	socksSrv, err := socks5.NewServer(agent.config.Socks5Config, connMngr, authMngr, socksErrCh)
+	socksSrv, err := socks5.NewServer(agent.config.Socks5Config, connMngr, authMngr)
 	if err != nil {
 		return err
 	}

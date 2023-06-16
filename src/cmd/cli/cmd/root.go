@@ -31,7 +31,10 @@ to quickly create a Cobra application.`,
 		if err := checkPort(port); err != nil {
 			return err
 		}
-		cfg := &client.TransportConfig{}
+		cfg := &client.TransportConfig{
+			Host:    fmt.Sprintf("%s:%s", ip, port),
+			Schemes: []string{"https"},
+		}
 		socksClient = client.NewHTTPClientWithConfig(nil, cfg)
 		return nil
 	},

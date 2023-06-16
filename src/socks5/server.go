@@ -36,7 +36,7 @@ type Server struct {
 	authenticators map[uint8]Authenticator
 }
 
-func NewServer(cfg Config, connMngr connection.Manager, authMngr src.AuthManager, errCh chan error) (*Server, error) {
+func NewServer(cfg Config, connMngr connection.Manager, authMngr src.AuthManager) (*Server, error) {
 	srv := &Server{
 		config:         cfg,
 		connMngr:       connMngr,
@@ -45,15 +45,12 @@ func NewServer(cfg Config, connMngr connection.Manager, authMngr src.AuthManager
 		authenticators: make(map[byte]Authenticator),
 	}
 
-	for _, name := range cfg.Auth {
-		if err := srv.AddAuthenticator(name); err != nil {
-			return nil, err
-		}
+	if err := srv.AddAuthenticator(cfg.Auth...); err != nil {
+		return nil, err
 	}
-	for _, name := range cfg.Command {
-		if err := srv.AddCommander(name); err != nil {
-			return nil, err
-		}
+
+	if err := srv.AddCommander(cfg.Command...); err != nil {
+		return nil, err
 	}
 
 	return srv, nil
@@ -180,19 +177,22 @@ LOOP:
 	return to, addr, err
 }
 
-func (srv *Server) AddAuthenticator(name string) error {
+func (srv *Server) AddAuthenticator(names ...string) error {
 	srv.mutex.Lock()
 	defer srv.mutex.Unlock()
 
-	var authenticator Authenticator
+	for _, name := range names {
+		var authenticator Authenticator
 
-	switch name {
-	case authNoAuth:
-		authenticator = NoAuth{}
-	default:
-		return fmt.Errorf("illeagal authenticator: %s", name)
+		switch name {
+		case authNoAuth:
+			authenticator = NoAuth{}
+		default:
+			return fmt.Errorf("illeagal authenticator: %s", name)
+		}
+		srv.authenticators[authenticator.Method()] = authenticator
 	}
-	srv.authenticators[authenticator.Method()] = authenticator
+
 	return nil
 }
 
@@ -209,23 +209,27 @@ func (srv *Server) RemoveAuthenticator(name string) error {
 	return fmt.Errorf("no such authenticator: %s", name)
 }
 
-func (srv *Server) AddCommander(name string) error {
+func (srv *Server) AddCommander(names ...string) error {
 	srv.mutex.Lock()
 	defer srv.mutex.Unlock()
 
-	var commander Commander
+	for _, name := range names {
+		var commander Commander
 
-	switch name {
-	case cmdConnect:
-		commander = NewConnectCommandor(srv.connMngr)
-	default:
-		return fmt.Errorf("illeagal commander: %s", name)
+		switch name {
+		case cmdConnect:
+			commander = NewConnectCommandor(srv.connMngr)
+		default:
+			return fmt.Errorf("illeagal commander: %s", name)
+		}
+		srv.commanders[commander.Method()] = commander
 	}
-	srv.commanders[commander.Method()] = commander
 	return nil
 }
 
 func (srv *Server) Close() {
-	_ = srv.listener.Close()
+	if srv.listener != nil {
+		_ = srv.listener.Close()
+	}
 	srv.connMngr.Close()
 }

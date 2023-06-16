@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
@@ -27,16 +30,33 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		_, err := socksClient.Operations.GetV1ConnectionList(nil)
+		response, err := socksClient.Operations.GetV1ConnectionList(nil)
 		if err != nil {
 			return fmt.Errorf("fail to make call to agent control server, %w", err)
 		}
+		t := table.NewWriter()
+		t.SetOutputMirror(os.Stdout)
 
+		t.AppendHeader(table.Row{"uuid", "source", "target"})
+
+		var rows []table.Row
+		for _, payload := range response.Payload {
+			rows = append(rows, table.Row{
+				payload.UUID, payload.Source, payload.Target,
+			})
+		}
+		t.AppendRows(rows)
+
+		t.AppendSeparator()
+		t.AppendFooter(table.Row{"", "", "Total", len(response.Payload)})
+
+		t.Render()
 		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(connection)
+
 	connection.AddCommand(list)
 }
