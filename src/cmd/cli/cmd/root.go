@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"crypto/tls"
 	"fmt"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/hanzezhenalex/socks5/src/agent/client"
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -38,7 +40,23 @@ to quickly create a Cobra application.`,
 			Schemes: []string{"https"},
 		}
 		runtime := httptransport.New(cfg.Host, cfg.BasePath, cfg.Schemes)
-		runtime.Transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify = true
+		dialer := &net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}
+		defaultTransport := &http.Transport{
+			Proxy:                 http.ProxyFromEnvironment,
+			DialContext:           dialer.DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
+		runtime.Transport = defaultTransport
 		socksClient = client.New(runtime, nil)
 		return nil
 	},
