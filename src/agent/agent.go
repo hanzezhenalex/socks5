@@ -3,10 +3,11 @@ package agent
 import (
 	"context"
 	"fmt"
+	"github.com/hanzezhenalex/socks5/src/auth"
+	"github.com/hanzezhenalex/socks5/src/route"
 	"sync"
 	"sync/atomic"
 
-	"github.com/hanzezhenalex/socks5/src"
 	"github.com/hanzezhenalex/socks5/src/connection"
 	"github.com/hanzezhenalex/socks5/src/socks5"
 	tlsUtil "github.com/hanzezhenalex/socks5/src/tls"
@@ -41,7 +42,7 @@ func NewAgent(config Config) *Agent {
 func (agent *Agent) Run() error {
 	var (
 		connMngr        connection.Manager
-		authMngr        src.AuthManager
+		authMngr        auth.Manager
 		socksErrCh      = make(chan error, 1)
 		controlSrvErrCh = make(chan error, 1)
 		wg              sync.WaitGroup
@@ -51,7 +52,7 @@ func (agent *Agent) Run() error {
 	switch agent.config.Mode {
 	case LocalMode:
 		connMngr = connection.NewConnectionManagement()
-		authMngr = struct{}{}
+		authMngr = auth.NewLocalManagement()
 	default:
 		return fmt.Errorf("%s mode is not supported yet", agent.config.Mode)
 	}
@@ -71,7 +72,7 @@ func (agent *Agent) Run() error {
 	agent.controlServer = tlsUtil.NewServer(
 		fmt.Sprintf("%s:%s", agent.config.Socks5Config.IP, agent.config.ControlServerPort))
 	go func() {
-		agent.startControlServer(ctx, connMngr, controlSrvErrCh)
+		agent.startControlServer(ctx, connMngr, authMngr, controlSrvErrCh)
 		close(controlSrvErrCh)
 		wg.Done()
 	}()
@@ -89,11 +90,14 @@ func (agent *Agent) Run() error {
 	return runningErr
 }
 
-func (agent *Agent) startControlServer(ctx context.Context, connMngr connection.Manager, errCh chan error) {
+func (agent *Agent) startControlServer(ctx context.Context, connMngr connection.Manager, authMngr auth.Manager, errCh chan error) {
 	routeGroup := agent.controlServer.RouteGroup()
 	v1 := routeGroup.Group("/v1")
-	connection.RegisterConnectionManagerEndpoints(v1.Group("/connection"), connMngr)
+	v1.Use(route.JwtAuth(authMngr))
+	route.RegisterConnectionManagerEndpoints(v1.Group("/connection"), connMngr, authMngr)
+	route.RegisterAuthManagerEndpoints(v1.Group("/auth"), authMngr)
 
+	routeGroup.POST("/login", route.Login(authMngr))
 	errCh <- agent.controlServer.ListenAndServe(ctx)
 }
 

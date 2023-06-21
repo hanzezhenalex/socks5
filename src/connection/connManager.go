@@ -3,6 +3,7 @@ package connection
 import (
 	"context"
 	"fmt"
+	"github.com/hanzezhenalex/socks5/src/auth"
 	"io"
 	"net"
 	"strings"
@@ -15,10 +16,10 @@ import (
 )
 
 type Manager interface {
-	Pipe(ctx context.Context, authInfo src.AuthInfo, from, to net.Conn, target string) error
-	DialTCP(ctx context.Context, authInfo src.AuthInfo, addr string) (net.Conn, net.Addr, error)
+	Pipe(ctx context.Context, authInfo auth.Info, from, to net.Conn, target string) error
+	DialTCP(ctx context.Context, authInfo auth.Info, addr string) (net.Conn, net.Addr, error)
 	Close()
-	ListConnections(ctx context.Context, authInfo src.AuthInfo) []PipeInfo
+	ListConnections(ctx context.Context, authInfo auth.Info) []PipeInfo
 }
 
 type PipeInfo struct {
@@ -30,7 +31,7 @@ type PipeInfo struct {
 type pipe struct {
 	connMngr *LocalManagement
 	uuid     uuid.UUID
-	authInfo src.AuthInfo
+	authInfo auth.Info
 	from, to net.Conn
 	target   string
 }
@@ -106,7 +107,7 @@ func NewConnectionManagement() *LocalManagement {
 	}
 }
 
-func (connMngr *LocalManagement) Pipe(ctx context.Context, authInfo src.AuthInfo, from, to net.Conn, target string) error {
+func (connMngr *LocalManagement) Pipe(ctx context.Context, authInfo auth.Info, from, to net.Conn, target string) error {
 	newPipe := func() *pipe {
 		p := &pipe{
 			connMngr: connMngr,
@@ -140,7 +141,7 @@ func (connMngr *LocalManagement) Pipe(ctx context.Context, authInfo src.AuthInfo
 	return nil
 }
 
-func (connMngr *LocalManagement) DialTCP(_ context.Context, _ src.AuthInfo, addr string) (net.Conn, net.Addr, error) {
+func (connMngr *LocalManagement) DialTCP(_ context.Context, _ auth.Info, addr string) (net.Conn, net.Addr, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, nil, err
@@ -164,7 +165,7 @@ func (connMngr *LocalManagement) Close() {
 	logrus.Info("connection management closed")
 }
 
-func (connMngr *LocalManagement) ListConnections(ctx context.Context, authInfo src.AuthInfo) []PipeInfo {
+func (connMngr *LocalManagement) ListConnections(ctx context.Context, authInfo auth.Info) []PipeInfo {
 	connMngr.mutex.Lock()
 	defer connMngr.mutex.Unlock()
 

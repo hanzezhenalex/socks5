@@ -2,11 +2,10 @@ package socks5
 
 import (
 	"context"
+	"github.com/hanzezhenalex/socks5/src/auth"
 	"github.com/hanzezhenalex/socks5/src/connection"
 	"net"
 	"strings"
-
-	"github.com/hanzezhenalex/socks5/src"
 )
 
 const (
@@ -18,7 +17,7 @@ const (
 type Commander interface {
 	Name() string
 	Method() uint8
-	Handle(ctx context.Context, authInfo src.AuthInfo, target Addr, conn net.Conn, buf []byte) (net.Conn, error)
+	Handle(ctx context.Context, authInfo auth.Info, target Addr, conn net.Conn, buf []byte) (net.Conn, error)
 }
 
 type ConnectCommandor struct {
@@ -37,7 +36,7 @@ func (c ConnectCommandor) Method() uint8 {
 	return connect
 }
 
-func (c ConnectCommandor) Handle(ctx context.Context, authInfo src.AuthInfo, target Addr, conn net.Conn, buf []byte) (net.Conn, error) {
+func (c ConnectCommandor) Handle(ctx context.Context, authInfo auth.Info, target Addr, conn net.Conn, buf []byte) (net.Conn, error) {
 	to, addr, err := c.connMngr.DialTCP(ctx, authInfo, target.String())
 	if err != nil {
 		msg := err.Error()

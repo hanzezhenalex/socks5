@@ -3,6 +3,7 @@ package socks5
 import (
 	"context"
 	"fmt"
+	"github.com/hanzezhenalex/socks5/src/auth"
 	"github.com/hanzezhenalex/socks5/src/connection"
 	"net"
 	"strings"
@@ -27,7 +28,7 @@ func (c Config) Addr() string {
 type Server struct {
 	config   Config
 	connMngr connection.Manager
-	authMngr src.AuthManager
+	authMngr auth.Manager
 
 	listener net.Listener
 
@@ -36,7 +37,7 @@ type Server struct {
 	authenticators map[uint8]Authenticator
 }
 
-func NewServer(cfg Config, connMngr connection.Manager, authMngr src.AuthManager) (*Server, error) {
+func NewServer(cfg Config, connMngr connection.Manager, authMngr auth.Manager) (*Server, error) {
 	srv := &Server{
 		config:         cfg,
 		connMngr:       connMngr,
@@ -116,9 +117,9 @@ func (srv *Server) handshake(ctx context.Context, conn net.Conn, tracer *logrus.
 	return srv.connMngr.Pipe(ctx, authInfo, conn, to, target)
 }
 
-func (srv *Server) authenticate(ctx context.Context, conn net.Conn, buf []byte) (src.AuthInfo, error) {
+func (srv *Server) authenticate(ctx context.Context, conn net.Conn, buf []byte) (auth.Info, error) {
 	var (
-		authInfo      src.AuthInfo
+		authInfo      auth.Info
 		authenticator Authenticator
 	)
 	methods, err := readMethodNegotiationReq(conn, buf)
@@ -150,7 +151,7 @@ func (srv *Server) handleCommand(
 	ctx context.Context,
 	conn net.Conn,
 	buf []byte,
-	authInfo src.AuthInfo,
+	authInfo auth.Info,
 	tracer *logrus.Entry,
 ) (net.Conn, string, error) {
 	var commander Commander
