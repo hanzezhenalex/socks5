@@ -7,6 +7,27 @@ info:
 schemes:
   - "https"
 paths:
+  /login:
+    post:
+      description: "login in the socks system."
+      produces:
+        - "application/json"
+      parameters:
+        - in: body
+          name: username
+          schema:
+            type: string
+        - in: body
+          name: password
+          schema:
+            type: string
+      responses:
+        200:
+          description: "success."
+        500:
+          description: "Error."
+        400:
+          description: "illegal request."
   /v1/connection/list:
     get:
       description: "Get the proxy connections."
@@ -19,6 +40,34 @@ paths:
             $ref: "#/definitions/connections"
         500:
           description: "Error."
+  /v1/auth/user/create:
+    post:
+      description: "create new user."
+      produces:
+        - "application/json"
+      parameters:
+        - in: body
+          name: username
+          schema:
+            type: string
+        - in: body
+          name: password
+          schema:
+            type: string
+        - in: body
+          name: roles
+          schema:
+            type: "array"
+      responses:
+        200:
+          description: "success."
+        400:
+          description: "illegal request."
+        401:
+          description: "only admin user can create new user"
+        500:
+          description: "Error."
+
 definitions:
   connections:
     type: "array"
