@@ -110,6 +110,7 @@ func NewGetV1ConnectionListInternalServerError() *GetV1ConnectionListInternalSer
 Error.
 */
 type GetV1ConnectionListInternalServerError struct {
+	Payload string
 }
 
 // IsSuccess returns true when this get v1 connection list internal server error response has a 2xx status code
@@ -138,14 +139,23 @@ func (o *GetV1ConnectionListInternalServerError) IsCode(code int) bool {
 }
 
 func (o *GetV1ConnectionListInternalServerError) Error() string {
-	return fmt.Sprintf("[GET /v1/connection/list][%d] getV1ConnectionListInternalServerError ", 500)
+	return fmt.Sprintf("[GET /v1/connection/list][%d] getV1ConnectionListInternalServerError  %+v", 500, o.Payload)
 }
 
 func (o *GetV1ConnectionListInternalServerError) String() string {
-	return fmt.Sprintf("[GET /v1/connection/list][%d] getV1ConnectionListInternalServerError ", 500)
+	return fmt.Sprintf("[GET /v1/connection/list][%d] getV1ConnectionListInternalServerError  %+v", 500, o.Payload)
+}
+
+func (o *GetV1ConnectionListInternalServerError) GetPayload() string {
+	return o.Payload
 }
 
 func (o *GetV1ConnectionListInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	// response payload
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+		return err
+	}
 
 	return nil
 }

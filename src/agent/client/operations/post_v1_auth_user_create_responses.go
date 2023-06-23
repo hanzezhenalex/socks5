@@ -7,6 +7,7 @@ package operations
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
@@ -109,6 +110,7 @@ func NewPostV1AuthUserCreateBadRequest() *PostV1AuthUserCreateBadRequest {
 illegal request.
 */
 type PostV1AuthUserCreateBadRequest struct {
+	Payload string
 }
 
 // IsSuccess returns true when this post v1 auth user create bad request response has a 2xx status code
@@ -137,14 +139,23 @@ func (o *PostV1AuthUserCreateBadRequest) IsCode(code int) bool {
 }
 
 func (o *PostV1AuthUserCreateBadRequest) Error() string {
-	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateBadRequest ", 400)
+	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateBadRequest  %+v", 400, o.Payload)
 }
 
 func (o *PostV1AuthUserCreateBadRequest) String() string {
-	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateBadRequest ", 400)
+	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateBadRequest  %+v", 400, o.Payload)
+}
+
+func (o *PostV1AuthUserCreateBadRequest) GetPayload() string {
+	return o.Payload
 }
 
 func (o *PostV1AuthUserCreateBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	// response payload
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+		return err
+	}
 
 	return nil
 }
@@ -159,6 +170,7 @@ func NewPostV1AuthUserCreateUnauthorized() *PostV1AuthUserCreateUnauthorized {
 only admin user can create new user
 */
 type PostV1AuthUserCreateUnauthorized struct {
+	Payload string
 }
 
 // IsSuccess returns true when this post v1 auth user create unauthorized response has a 2xx status code
@@ -187,14 +199,23 @@ func (o *PostV1AuthUserCreateUnauthorized) IsCode(code int) bool {
 }
 
 func (o *PostV1AuthUserCreateUnauthorized) Error() string {
-	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateUnauthorized ", 401)
+	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateUnauthorized  %+v", 401, o.Payload)
 }
 
 func (o *PostV1AuthUserCreateUnauthorized) String() string {
-	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateUnauthorized ", 401)
+	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateUnauthorized  %+v", 401, o.Payload)
+}
+
+func (o *PostV1AuthUserCreateUnauthorized) GetPayload() string {
+	return o.Payload
 }
 
 func (o *PostV1AuthUserCreateUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	// response payload
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+		return err
+	}
 
 	return nil
 }
@@ -209,6 +230,7 @@ func NewPostV1AuthUserCreateInternalServerError() *PostV1AuthUserCreateInternalS
 Error.
 */
 type PostV1AuthUserCreateInternalServerError struct {
+	Payload string
 }
 
 // IsSuccess returns true when this post v1 auth user create internal server error response has a 2xx status code
@@ -237,14 +259,23 @@ func (o *PostV1AuthUserCreateInternalServerError) IsCode(code int) bool {
 }
 
 func (o *PostV1AuthUserCreateInternalServerError) Error() string {
-	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateInternalServerError ", 500)
+	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateInternalServerError  %+v", 500, o.Payload)
 }
 
 func (o *PostV1AuthUserCreateInternalServerError) String() string {
-	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateInternalServerError ", 500)
+	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateInternalServerError  %+v", 500, o.Payload)
+}
+
+func (o *PostV1AuthUserCreateInternalServerError) GetPayload() string {
+	return o.Payload
 }
 
 func (o *PostV1AuthUserCreateInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	// response payload
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+		return err
+	}
 
 	return nil
 }
