@@ -55,6 +55,7 @@ PostLoginOK describes a response with status code 200, with default header value
 success.
 */
 type PostLoginOK struct {
+	Payload string
 }
 
 // IsSuccess returns true when this post login o k response has a 2xx status code
@@ -88,14 +89,23 @@ func (o *PostLoginOK) Code() int {
 }
 
 func (o *PostLoginOK) Error() string {
-	return fmt.Sprintf("[POST /login][%d] postLoginOK ", 200)
+	return fmt.Sprintf("[POST /login][%d] postLoginOK  %+v", 200, o.Payload)
 }
 
 func (o *PostLoginOK) String() string {
-	return fmt.Sprintf("[POST /login][%d] postLoginOK ", 200)
+	return fmt.Sprintf("[POST /login][%d] postLoginOK  %+v", 200, o.Payload)
+}
+
+func (o *PostLoginOK) GetPayload() string {
+	return o.Payload
 }
 
 func (o *PostLoginOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	// response payload
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+		return err
+	}
 
 	return nil
 }
