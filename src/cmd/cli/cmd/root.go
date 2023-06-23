@@ -3,19 +3,29 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
-	httptransport "github.com/go-openapi/runtime/client"
-	"github.com/hanzezhenalex/socks5/src/agent/client"
 	"net"
 	"net/http"
+	"os"
+	"runtime"
 	"strconv"
 	"time"
 
+	"github.com/hanzezhenalex/socks5/src/agent/client"
+
+	httpTransport "github.com/go-openapi/runtime/client"
 	"github.com/spf13/cobra"
 )
 
 var (
-	ip, port    string
-	socksClient *client.SocksAgentAPIV1
+	ip, port      string
+	socksClient   *client.SocksAgentAPIV1
+	token         string
+	tokenFilePath string
+)
+
+const (
+	tokenFilePathWindows = ""
+	tokenFilePathLinux   = "/tmp/socks/token"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -26,6 +36,32 @@ var rootCmd = &cobra.Command{
 And also control the behaviors of socks server.
 `,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		switch runtime.GOOS {
+		case "windows":
+			tokenFilePath = tokenFilePathWindows
+		case "linux":
+			tokenFilePath = tokenFilePathLinux
+		default:
+			return fmt.Errorf("unsupported os: %s", runtime.GOOS)
+		}
+
+		switch cmd.Use {
+		case "login":
+		default:
+			_, err := os.Stat(tokenFilePath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return fmt.Errorf("please login first")
+				}
+				return fmt.Errorf("unable to check login status, please re-login")
+			}
+			data, err := os.ReadFile(tokenFilePath)
+			if err != nil {
+				return fmt.Errorf("unable to check login status, please re-login")
+			}
+			token = string(data)
+		}
+
 		if net.ParseIP(ip) == nil {
 			return fmt.Errorf("illeagal ip: %s", ip)
 		}
@@ -36,7 +72,7 @@ And also control the behaviors of socks server.
 			Host:    fmt.Sprintf("%s:%s", ip, port),
 			Schemes: []string{"https"},
 		}
-		runtime := httptransport.New(cfg.Host, cfg.BasePath, cfg.Schemes)
+		runtime := httpTransport.New(cfg.Host, cfg.BasePath, cfg.Schemes)
 		dialer := &net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,

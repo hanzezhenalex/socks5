@@ -22,8 +22,12 @@ paths:
           description: "success."
         500:
           description: "Error."
+          schema:
+            type: "string"
         400:
           description: "illegal request."
+          schema:
+            type: "string"
   /v1/connection/list:
     get:
       description: "Get the proxy connections."
@@ -36,6 +40,8 @@ paths:
             $ref: "#/definitions/connections"
         500:
           description: "Error."
+          schema:
+            type: "string"
   /v1/auth/user/create:
     post:
       description: "create new user."
@@ -51,10 +57,16 @@ paths:
           description: "success."
         400:
           description: "illegal request."
+          schema:
+            type: "string"
         401:
           description: "only admin user can create new user"
+          schema:
+            type: "string"
         500:
           description: "Error."
+          schema:
+            type: "string"
 
 definitions:
   connections:
