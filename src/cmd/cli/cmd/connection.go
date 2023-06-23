@@ -6,6 +6,8 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
+
+	"github.com/hanzezhenalex/socks5/src/agent/client/operations"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -22,7 +24,9 @@ var list = &cobra.Command{
 	Long: `List connections agent is proxying now,
 auth is not working, in the future, users can only op on his/her own connections.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		response, err := socksClient.Operations.GetV1ConnectionList(nil)
+		params := operations.NewGetV1ConnectionListParams()
+		params.Authorization = &tokenC.token
+		response, err := socksClient.Operations.GetV1ConnectionList(params)
 		if err != nil {
 			return fmt.Errorf("fail to make call to agent control server, %w", err)
 		}
