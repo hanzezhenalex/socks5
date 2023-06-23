@@ -38,8 +38,14 @@ And also control the behaviors of socks server.
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		_tokenC, err := NewTokenCollector()
 		if err != nil {
+			logrus.Errorf("fail to create token collector, %s", err.Error())
 			return fmt.Errorf("fail to read token")
 		}
+		if err := _tokenC.read(); err != nil {
+			logrus.Errorf("fail to read token, %s", err.Error())
+			return fmt.Errorf("fail to read token")
+		}
+
 		tokenC = _tokenC
 
 		if net.ParseIP(ip) == nil {
