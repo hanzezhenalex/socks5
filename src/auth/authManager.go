@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"hash/fnv"
 	"strconv"
 	"sync"
@@ -180,9 +181,10 @@ func MakeToken(username string) (tokenString string, err error) {
 
 func ParseToken(s string) (*JwtClaims, error) {
 	token, err := jwt.ParseWithClaims(s, &JwtClaims{}, func(_ *jwt.Token) (interface{}, error) {
-		return defaultSecretKey, nil
+		return []byte(defaultSecretKey), nil
 	})
 	if err != nil {
+		logrus.Errorf("fail to parse token, err=%s", err.Error())
 		if ve, ok := err.(*jwt.ValidationError); ok {
 			if ve.Errors&jwt.ValidationErrorExpired != 0 {
 				return nil, TokenExpired
