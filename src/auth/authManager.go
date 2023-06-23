@@ -175,7 +175,7 @@ func MakeToken(username string) (tokenString string, err error) {
 			NotBefore: jwt.NewNumericDate(time.Now()),
 		}}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim) // HS256
-	return token.SignedString(defaultSecretKey)
+	return token.SignedString([]byte(defaultSecretKey))
 }
 
 func ParseToken(s string) (*JwtClaims, error) {
