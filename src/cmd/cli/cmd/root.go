@@ -8,9 +8,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hanzezhenalex/socks5/src"
 	"github.com/hanzezhenalex/socks5/src/agent/client"
 
 	httpTransport "github.com/go-openapi/runtime/client"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -18,11 +20,12 @@ var (
 	ip, port    string
 	socksClient *client.SocksAgentAPIV1
 	tokenC      *tokenCollector
+	debug       bool
 )
 
 const (
 	tokenFilePathWindows = ""
-	tokenFilePathLinux   = "/tmp/socks/token"
+	tokenFilePathLinux   = "/tmp/socks_token"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -68,6 +71,12 @@ And also control the behaviors of socks server.
 		}
 		runtime.Transport = defaultTransport
 		socksClient = client.New(runtime, nil)
+
+		if debug {
+			logrus.SetLevel(logrus.DebugLevel)
+		} else {
+			logrus.SetOutput(src.BlackHole{})
+		}
 		return nil
 	},
 }
@@ -83,6 +92,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&ip, "addr", "127.0.0.1", "socks agent control server ip")
 	rootCmd.PersistentFlags().StringVar(&port, "port", "8090", "socks agent control server port")
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "run in debug mode")
 }
 
 func checkPort(port string) error {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"os"
 	"runtime"
 	"strings"
@@ -75,12 +76,14 @@ func (c *tokenCollector) read() error {
 func (c *tokenCollector) set(token string) error {
 	file, err := os.OpenFile(c.path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
+		logrus.Errorf("fail to open token file: err=%s", err.Error())
 		return fmt.Errorf("fail to persist token locally")
 	}
 	defer func() { _ = file.Close() }()
 
 	_, err = file.WriteString(token)
 	if err != nil {
+		logrus.Errorf("fail to write to token file: err=%s", err.Error())
 		return fmt.Errorf("fail to persist token locally")
 	}
 	c.token = token
