@@ -14,13 +14,9 @@ paths:
         - "application/json"
       parameters:
         - in: body
-          name: username
+          name: "user"
           schema:
-            type: string
-        - in: body
-          name: password
-          schema:
-            type: string
+            $ref: "#/definitions/user"
       responses:
         200:
           description: "success."
@@ -47,19 +43,9 @@ paths:
         - "application/json"
       parameters:
         - in: body
-          name: username
+          name: "user"
           schema:
-            type: string
-        - in: body
-          name: password
-          schema:
-            type: string
-        - in: body
-          name: roles
-          schema:
-            type: "array"
-            items:
-              type: string
+            $ref: "#/definitions/user"
       responses:
         200:
           description: "success."
@@ -84,3 +70,14 @@ definitions:
         type: "string"
       target:
         type: "string"
+  user:
+    type: "object"
+    properties:
+      username:
+        type: "string"
+      password:
+        type: "string"
+      roles:
+        type: "array"
+        items:
+          type: "string"
