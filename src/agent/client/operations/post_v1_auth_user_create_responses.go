@@ -46,7 +46,7 @@ func (o *PostV1AuthUserCreateReader) ReadResponse(response runtime.ClientRespons
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[POST /v1/auth/user/create] PostV1AuthUserCreate", response, response.Code())
 	}
 }
 
@@ -55,7 +55,8 @@ func NewPostV1AuthUserCreateOK() *PostV1AuthUserCreateOK {
 	return &PostV1AuthUserCreateOK{}
 }
 
-/* PostV1AuthUserCreateOK describes a response with status code 200, with default header values.
+/*
+PostV1AuthUserCreateOK describes a response with status code 200, with default header values.
 
 success.
 */
@@ -87,6 +88,11 @@ func (o *PostV1AuthUserCreateOK) IsCode(code int) bool {
 	return code == 200
 }
 
+// Code gets the status code for the post v1 auth user create o k response
+func (o *PostV1AuthUserCreateOK) Code() int {
+	return 200
+}
+
 func (o *PostV1AuthUserCreateOK) Error() string {
 	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateOK ", 200)
 }
@@ -105,7 +111,8 @@ func NewPostV1AuthUserCreateBadRequest() *PostV1AuthUserCreateBadRequest {
 	return &PostV1AuthUserCreateBadRequest{}
 }
 
-/* PostV1AuthUserCreateBadRequest describes a response with status code 400, with default header values.
+/*
+PostV1AuthUserCreateBadRequest describes a response with status code 400, with default header values.
 
 illegal request.
 */
@@ -138,6 +145,11 @@ func (o *PostV1AuthUserCreateBadRequest) IsCode(code int) bool {
 	return code == 400
 }
 
+// Code gets the status code for the post v1 auth user create bad request response
+func (o *PostV1AuthUserCreateBadRequest) Code() int {
+	return 400
+}
+
 func (o *PostV1AuthUserCreateBadRequest) Error() string {
 	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateBadRequest  %+v", 400, o.Payload)
 }
@@ -165,7 +177,8 @@ func NewPostV1AuthUserCreateUnauthorized() *PostV1AuthUserCreateUnauthorized {
 	return &PostV1AuthUserCreateUnauthorized{}
 }
 
-/* PostV1AuthUserCreateUnauthorized describes a response with status code 401, with default header values.
+/*
+PostV1AuthUserCreateUnauthorized describes a response with status code 401, with default header values.
 
 only admin user can create new user
 */
@@ -198,6 +211,11 @@ func (o *PostV1AuthUserCreateUnauthorized) IsCode(code int) bool {
 	return code == 401
 }
 
+// Code gets the status code for the post v1 auth user create unauthorized response
+func (o *PostV1AuthUserCreateUnauthorized) Code() int {
+	return 401
+}
+
 func (o *PostV1AuthUserCreateUnauthorized) Error() string {
 	return fmt.Sprintf("[POST /v1/auth/user/create][%d] postV1AuthUserCreateUnauthorized  %+v", 401, o.Payload)
 }
@@ -225,7 +243,8 @@ func NewPostV1AuthUserCreateInternalServerError() *PostV1AuthUserCreateInternalS
 	return &PostV1AuthUserCreateInternalServerError{}
 }
 
-/* PostV1AuthUserCreateInternalServerError describes a response with status code 500, with default header values.
+/*
+PostV1AuthUserCreateInternalServerError describes a response with status code 500, with default header values.
 
 Error.
 */
@@ -256,6 +275,11 @@ func (o *PostV1AuthUserCreateInternalServerError) IsServerError() bool {
 // IsCode returns true when this post v1 auth user create internal server error response a status code equal to that given
 func (o *PostV1AuthUserCreateInternalServerError) IsCode(code int) bool {
 	return code == 500
+}
+
+// Code gets the status code for the post v1 auth user create internal server error response
+func (o *PostV1AuthUserCreateInternalServerError) Code() int {
+	return 500
 }
 
 func (o *PostV1AuthUserCreateInternalServerError) Error() string {

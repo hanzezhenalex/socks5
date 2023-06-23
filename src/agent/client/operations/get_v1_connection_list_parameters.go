@@ -52,10 +52,12 @@ func NewGetV1ConnectionListParamsWithHTTPClient(client *http.Client) *GetV1Conne
 	}
 }
 
-/* GetV1ConnectionListParams contains all the parameters to send to the API endpoint
-   for the get v1 connection list operation.
+/*
+GetV1ConnectionListParams contains all the parameters to send to the API endpoint
 
-   Typically these are written to a http.Request.
+	for the get v1 connection list operation.
+
+	Typically these are written to a http.Request.
 */
 type GetV1ConnectionListParams struct {
 	timeout    time.Duration

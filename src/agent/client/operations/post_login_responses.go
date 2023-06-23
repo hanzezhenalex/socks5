@@ -40,7 +40,7 @@ func (o *PostLoginReader) ReadResponse(response runtime.ClientResponse, consumer
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[POST /login] PostLogin", response, response.Code())
 	}
 }
 
@@ -49,7 +49,8 @@ func NewPostLoginOK() *PostLoginOK {
 	return &PostLoginOK{}
 }
 
-/* PostLoginOK describes a response with status code 200, with default header values.
+/*
+PostLoginOK describes a response with status code 200, with default header values.
 
 success.
 */
@@ -81,6 +82,11 @@ func (o *PostLoginOK) IsCode(code int) bool {
 	return code == 200
 }
 
+// Code gets the status code for the post login o k response
+func (o *PostLoginOK) Code() int {
+	return 200
+}
+
 func (o *PostLoginOK) Error() string {
 	return fmt.Sprintf("[POST /login][%d] postLoginOK ", 200)
 }
@@ -99,7 +105,8 @@ func NewPostLoginBadRequest() *PostLoginBadRequest {
 	return &PostLoginBadRequest{}
 }
 
-/* PostLoginBadRequest describes a response with status code 400, with default header values.
+/*
+PostLoginBadRequest describes a response with status code 400, with default header values.
 
 illegal request.
 */
@@ -132,6 +139,11 @@ func (o *PostLoginBadRequest) IsCode(code int) bool {
 	return code == 400
 }
 
+// Code gets the status code for the post login bad request response
+func (o *PostLoginBadRequest) Code() int {
+	return 400
+}
+
 func (o *PostLoginBadRequest) Error() string {
 	return fmt.Sprintf("[POST /login][%d] postLoginBadRequest  %+v", 400, o.Payload)
 }
@@ -159,7 +171,8 @@ func NewPostLoginInternalServerError() *PostLoginInternalServerError {
 	return &PostLoginInternalServerError{}
 }
 
-/* PostLoginInternalServerError describes a response with status code 500, with default header values.
+/*
+PostLoginInternalServerError describes a response with status code 500, with default header values.
 
 Error.
 */
@@ -190,6 +203,11 @@ func (o *PostLoginInternalServerError) IsServerError() bool {
 // IsCode returns true when this post login internal server error response a status code equal to that given
 func (o *PostLoginInternalServerError) IsCode(code int) bool {
 	return code == 500
+}
+
+// Code gets the status code for the post login internal server error response
+func (o *PostLoginInternalServerError) Code() int {
+	return 500
 }
 
 func (o *PostLoginInternalServerError) Error() string {

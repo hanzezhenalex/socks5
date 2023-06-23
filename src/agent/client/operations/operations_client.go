@@ -40,7 +40,7 @@ type ClientService interface {
 }
 
 /*
-  GetV1ConnectionList Get the proxy connections.
+GetV1ConnectionList Get the proxy connections.
 */
 func (a *Client) GetV1ConnectionList(params *GetV1ConnectionListParams, opts ...ClientOption) (*GetV1ConnectionListOK, error) {
 	// TODO: Validate the params before sending
@@ -78,7 +78,7 @@ func (a *Client) GetV1ConnectionList(params *GetV1ConnectionListParams, opts ...
 }
 
 /*
-  PostLogin login in the socks system.
+PostLogin login in the socks system.
 */
 func (a *Client) PostLogin(params *PostLoginParams, opts ...ClientOption) (*PostLoginOK, error) {
 	// TODO: Validate the params before sending
@@ -116,7 +116,7 @@ func (a *Client) PostLogin(params *PostLoginParams, opts ...ClientOption) (*Post
 }
 
 /*
-  PostV1AuthUserCreate create new user.
+PostV1AuthUserCreate create new user.
 */
 func (a *Client) PostV1AuthUserCreate(params *PostV1AuthUserCreateParams, opts ...ClientOption) (*PostV1AuthUserCreateOK, error) {
 	// TODO: Validate the params before sending

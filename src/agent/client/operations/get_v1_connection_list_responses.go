@@ -36,7 +36,7 @@ func (o *GetV1ConnectionListReader) ReadResponse(response runtime.ClientResponse
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /v1/connection/list] GetV1ConnectionList", response, response.Code())
 	}
 }
 
@@ -45,7 +45,8 @@ func NewGetV1ConnectionListOK() *GetV1ConnectionListOK {
 	return &GetV1ConnectionListOK{}
 }
 
-/* GetV1ConnectionListOK describes a response with status code 200, with default header values.
+/*
+GetV1ConnectionListOK describes a response with status code 200, with default header values.
 
 Get all the connections.
 */
@@ -78,6 +79,11 @@ func (o *GetV1ConnectionListOK) IsCode(code int) bool {
 	return code == 200
 }
 
+// Code gets the status code for the get v1 connection list o k response
+func (o *GetV1ConnectionListOK) Code() int {
+	return 200
+}
+
 func (o *GetV1ConnectionListOK) Error() string {
 	return fmt.Sprintf("[GET /v1/connection/list][%d] getV1ConnectionListOK  %+v", 200, o.Payload)
 }
@@ -105,7 +111,8 @@ func NewGetV1ConnectionListInternalServerError() *GetV1ConnectionListInternalSer
 	return &GetV1ConnectionListInternalServerError{}
 }
 
-/* GetV1ConnectionListInternalServerError describes a response with status code 500, with default header values.
+/*
+GetV1ConnectionListInternalServerError describes a response with status code 500, with default header values.
 
 Error.
 */
@@ -136,6 +143,11 @@ func (o *GetV1ConnectionListInternalServerError) IsServerError() bool {
 // IsCode returns true when this get v1 connection list internal server error response a status code equal to that given
 func (o *GetV1ConnectionListInternalServerError) IsCode(code int) bool {
 	return code == 500
+}
+
+// Code gets the status code for the get v1 connection list internal server error response
+func (o *GetV1ConnectionListInternalServerError) Code() int {
+	return 500
 }
 
 func (o *GetV1ConnectionListInternalServerError) Error() string {
