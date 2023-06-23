@@ -41,9 +41,19 @@ And also control the behaviors of socks server.
 			logrus.Errorf("fail to create token collector, %s", err.Error())
 			return fmt.Errorf("fail to read token")
 		}
-		if err := _tokenC.read(); err != nil {
-			logrus.Errorf("fail to read token, %s", err.Error())
-			return fmt.Errorf("fail to read token")
+
+		loginRelated := false
+		for _, arg := range args {
+			if arg == "login" || arg == "logout" {
+				loginRelated = true
+			}
+		}
+
+		if !loginRelated {
+			if err := _tokenC.read(); err != nil {
+				logrus.Errorf("fail to read token, %s", err.Error())
+				return fmt.Errorf("fail to read token")
+			}
 		}
 
 		tokenC = _tokenC

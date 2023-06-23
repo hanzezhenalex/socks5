@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"os"
 	"runtime"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/hanzezhenalex/socks5/src/agent/client/operations"
@@ -44,12 +44,26 @@ var login = &cobra.Command{
 			return err
 		}
 		fmt.Printf("successfully login as %s", username)
+		fmt.Println()
+		return nil
+	},
+}
+
+var logout = &cobra.Command{
+	Use:   "logout",
+	Short: "logout system",
+	Long:  `logout system`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := tokenC.remove(); err != nil {
+			return fmt.Errorf("fail to logout")
+		}
 		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(login)
+	rootCmd.AddCommand(logout)
 
 	login.Flags().StringVarP(&username, "username", "u", "", "username for user")
 	login.Flags().StringVarP(&password, "password", "p", "", "password for user")
@@ -90,6 +104,21 @@ func (c *tokenCollector) set(token string) error {
 		return fmt.Errorf("fail to persist token locally")
 	}
 	c.token = token
+	return nil
+}
+
+func (c *tokenCollector) remove() error {
+	_, err := os.Stat(c.path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("unable to check login status")
+	}
+	if err := os.Remove(c.path); err != nil {
+		logrus.Errorf("fail to remove token file")
+		return err
+	}
 	return nil
 }
 
