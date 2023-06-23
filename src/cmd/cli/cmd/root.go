@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -17,10 +15,9 @@ import (
 )
 
 var (
-	ip, port      string
-	socksClient   *client.SocksAgentAPIV1
-	token         string
-	tokenFilePath string
+	ip, port    string
+	socksClient *client.SocksAgentAPIV1
+	tokenC      *tokenCollector
 )
 
 const (
@@ -36,31 +33,11 @@ var rootCmd = &cobra.Command{
 And also control the behaviors of socks server.
 `,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		switch runtime.GOOS {
-		case "windows":
-			tokenFilePath = tokenFilePathWindows
-		case "linux":
-			tokenFilePath = tokenFilePathLinux
-		default:
-			return fmt.Errorf("unsupported os: %s", runtime.GOOS)
+		_tokenC, err := NewTokenCollector()
+		if err != nil {
+			return fmt.Errorf("fail to read token")
 		}
-
-		switch cmd.Use {
-		case "login":
-		default:
-			_, err := os.Stat(tokenFilePath)
-			if err != nil {
-				if os.IsNotExist(err) {
-					return fmt.Errorf("please login first")
-				}
-				return fmt.Errorf("unable to check login status, please re-login")
-			}
-			data, err := os.ReadFile(tokenFilePath)
-			if err != nil {
-				return fmt.Errorf("unable to check login status, please re-login")
-			}
-			token = string(data)
-		}
+		tokenC = _tokenC
 
 		if net.ParseIP(ip) == nil {
 			return fmt.Errorf("illeagal ip: %s", ip)

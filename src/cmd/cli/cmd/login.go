@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -24,28 +25,22 @@ var login = &cobra.Command{
 		if strings.ReplaceAll(username, " ", "") == "" || strings.ReplaceAll(password, " ", "") == "" {
 			return fmt.Errorf("username/password can't be empty")
 		}
-
-		response, err := socksClient.Operations.PostLogin(&operations.PostLoginParams{
-			User: &models.User{
-				Username: username,
-				Password: password,
-			},
-		})
+		params := operations.NewPostLoginParams()
+		params.User = &models.User{
+			Username: username,
+			Password: password,
+		}
+		response, err := socksClient.Operations.PostLogin(params)
 		if err != nil {
 			return fmt.Errorf("fail to login, %w", err)
 		}
 
-		file, err := os.OpenFile(tokenFilePath, os.O_WRONLY|os.O_CREATE, 0666)
+		c, err := NewTokenCollector()
 		if err != nil {
-			return fmt.Errorf("fail to persist token locally")
+			return fmt.Errorf("fail to persist token, %w", err)
 		}
-		defer func() { _ = file.Close() }()
 
-		_, err = file.WriteString(response.Payload)
-		if err != nil {
-			return fmt.Errorf("fail to persist token locally")
-		}
-		return nil
+		return c.set(response.Payload)
 	},
 }
 
@@ -54,4 +49,54 @@ func init() {
 
 	login.Flags().StringVarP(&username, "username", "u", "", "username for user")
 	login.Flags().StringVarP(&password, "password", "p", "", "password for user")
+}
+
+type tokenCollector struct {
+	token string
+	path  string
+}
+
+func (c *tokenCollector) read() error {
+	_, err := os.Stat(c.path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("please login first")
+		}
+		return fmt.Errorf("unable to check login status, please re-login")
+	}
+	data, err := os.ReadFile(c.path)
+	if err != nil {
+		return fmt.Errorf("unable to check login status, please re-login")
+	}
+	c.token = string(data)
+	return nil
+}
+
+func (c *tokenCollector) set(token string) error {
+	file, err := os.OpenFile(c.path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("fail to persist token locally")
+	}
+	defer func() { _ = file.Close() }()
+
+	_, err = file.WriteString(token)
+	if err != nil {
+		return fmt.Errorf("fail to persist token locally")
+	}
+	c.token = token
+	return nil
+}
+
+func NewTokenCollector() (*tokenCollector, error) {
+	c := &tokenCollector{}
+	switch runtime.GOOS {
+	case "windows":
+		c.path = tokenFilePathWindows
+	case "linux":
+		c.path = tokenFilePathLinux
+	default:
+		return nil, fmt.Errorf("unsupported os: %s", runtime.GOOS)
+	}
+
+	return c, nil
 }

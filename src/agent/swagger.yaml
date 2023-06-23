@@ -35,6 +35,10 @@ paths:
       description: "Get the proxy connections."
       produces:
         - "application/json"
+      parameters:
+        - in: header
+          name: Authorization
+          type: string
       responses:
         200:
           description: "Get all the connections."
@@ -54,6 +58,9 @@ paths:
           name: "user"
           schema:
             $ref: "#/definitions/user"
+        - in: header
+          name: Authorization
+          type: string
       responses:
         200:
           description: "success."
