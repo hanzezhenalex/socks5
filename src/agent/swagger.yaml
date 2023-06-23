@@ -20,6 +20,8 @@ paths:
       responses:
         200:
           description: "success."
+          schema:
+            type: "string"
         500:
           description: "Error."
           schema:

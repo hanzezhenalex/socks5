@@ -88,8 +88,9 @@ func Login(authMngr auth.Manager) gin.HandlerFunc {
 			}
 			return
 		}
-		context.Writer.Header().Add("Authorization", fmt.Sprintf("Bearer %s", info.Token))
-		context.Status(http.StatusOK)
+		token := fmt.Sprintf("Bearer %s", info.Token)
+		context.Writer.Header().Add("Authorization", token)
+		context.String(http.StatusOK, token)
 	}
 }
 
