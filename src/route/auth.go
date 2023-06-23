@@ -34,11 +34,12 @@ func CreateNewUser(authMngr auth.Manager) gin.HandlerFunc {
 		var req userReq
 		if err := json.NewDecoder(context.Request.Body).Decode(&req); err != nil {
 			tracer.Errorf("fail to decode CreateNewUser request body, err=%s", err.Error())
-			context.Status(http.StatusBadRequest)
+			context.String(http.StatusBadRequest, "illegal request body")
 			return
 		}
 		creator, ok := context.Get(xUserId)
 		if !ok {
+			tracer.Error("no authInfo in context")
 			context.Status(http.StatusInternalServerError)
 			return
 		}
@@ -53,14 +54,14 @@ func CreateNewUser(authMngr auth.Manager) gin.HandlerFunc {
 			case auth.Admin:
 				newUserInfo.Roles = append(newUserInfo.Roles, auth.RoleAdmin)
 			default:
-				context.Status(http.StatusBadRequest)
+				context.String(http.StatusBadRequest, "illegal roles of new user: %s", role)
 				return
 			}
 		}
 
 		if err := authMngr.CreateNewUser(context.Request.Context(), newUserInfo, creator.(string)); err != nil {
 			if err == auth.NotAuthorize {
-				context.Status(http.StatusUnauthorized)
+				context.String(http.StatusUnauthorized, "permission denied for creator")
 			} else {
 				context.Status(http.StatusInternalServerError)
 			}
@@ -75,13 +76,13 @@ func Login(authMngr auth.Manager) gin.HandlerFunc {
 		var req userReq
 		if err := json.NewDecoder(context.Request.Body).Decode(&req); err != nil {
 			tracer.Errorf("fail to decode Login request body, err=%s", err.Error())
-			context.Status(http.StatusBadRequest)
+			context.String(http.StatusBadRequest, "illegal request body")
 			return
 		}
 		info, err := authMngr.Login(context.Request.Context(), req.Username, req.Password)
 		if err != nil {
 			if err == auth.UserNotExist || err == auth.IncorrectPassword {
-				context.Status(http.StatusBadRequest)
+				context.String(http.StatusBadRequest, "incorrect username/password")
 			} else {
 				context.Status(http.StatusInternalServerError)
 			}
