@@ -42,14 +42,9 @@ And also control the behaviors of socks server.
 			return fmt.Errorf("fail to read token")
 		}
 
-		loginRelated := false
-		for _, arg := range args {
-			if arg == "login" || arg == "logout" {
-				loginRelated = true
-			}
-		}
+		if cmd.Use == "login" || cmd.Use == "logout" {
 
-		if !loginRelated {
+		} else {
 			if err := _tokenC.read(); err != nil {
 				logrus.Errorf("fail to read token, %s", err.Error())
 				return fmt.Errorf("fail to read token")
