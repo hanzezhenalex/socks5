@@ -25,7 +25,7 @@ var login = &cobra.Command{
 			return fmt.Errorf("username/password can't be empty")
 		}
 
-		_, err := socksClient.Operations.PostLogin(&operations.PostLoginParams{
+		response, err := socksClient.Operations.PostLogin(&operations.PostLoginParams{
 			User: &models.User{
 				Username: username,
 				Password: password,
@@ -41,7 +41,7 @@ var login = &cobra.Command{
 		}
 		defer func() { _ = file.Close() }()
 
-		_, err = file.WriteString("")
+		_, err = file.WriteString(response.Payload)
 		if err != nil {
 			return fmt.Errorf("fail to persist token locally")
 		}
