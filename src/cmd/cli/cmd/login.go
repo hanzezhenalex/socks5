@@ -40,8 +40,11 @@ var login = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("fail to persist token, %w", err)
 		}
-
-		return c.set(response.Payload)
+		if err := c.set(response.Payload); err != nil {
+			return err
+		}
+		fmt.Printf("successfully login as %s", username)
+		return nil
 	},
 }
 

@@ -17,6 +17,8 @@ var (
 
 const (
 	xUserId = "x-user-id"
+
+	Authorization = "Authorization"
 )
 
 func RegisterAuthManagerEndpoints(router *gin.RouterGroup, auth auth.Manager) {
@@ -89,16 +91,17 @@ func Login(authMngr auth.Manager) gin.HandlerFunc {
 			return
 		}
 		token := fmt.Sprintf("Bearer %s", info.Token)
-		context.Writer.Header().Add("Authorization", token)
+		context.Writer.Header().Add(Authorization, token)
 		context.String(http.StatusOK, token)
 	}
 }
 
 func JwtAuth(authMngr auth.Manager) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		authHeader := context.Request.Header.Get("Authorization")
+		authHeader := context.Request.Header.Get(Authorization)
 		tokens := strings.Split(authHeader, " ")
 		if len(tokens) != 2 {
+			logrus.Errorf("illegal tokens, header=%s", authHeader)
 			context.Status(http.StatusUnauthorized)
 			context.Abort()
 			return
@@ -106,6 +109,7 @@ func JwtAuth(authMngr auth.Manager) gin.HandlerFunc {
 		jwtToken := tokens[1]
 		claims, err := auth.ParseToken(jwtToken)
 		if err != nil {
+			logrus.Errorf("fail to parse token, illegal tokens, err=%s", err.Error())
 			context.Status(http.StatusUnauthorized)
 			context.Abort()
 			return

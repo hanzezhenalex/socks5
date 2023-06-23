@@ -92,10 +92,13 @@ func (agent *Agent) Run() error {
 
 func (agent *Agent) startControlServer(ctx context.Context, connMngr connection.Manager, authMngr auth.Manager, errCh chan error) {
 	routeGroup := agent.controlServer.RouteGroup()
-	v1 := routeGroup.Group("/v1")
-	v1.Use(route.JwtAuth(authMngr))
-	route.RegisterConnectionManagerEndpoints(v1.Group("/connection"), connMngr, authMngr)
-	route.RegisterAuthManagerEndpoints(v1.Group("/auth"), authMngr)
+	{
+		v1 := routeGroup.Group("/v1")
+		v1.Use(route.JwtAuth(authMngr))
+
+		route.RegisterConnectionManagerEndpoints(v1.Group("/connection"), connMngr, authMngr)
+		route.RegisterAuthManagerEndpoints(v1.Group("/auth"), authMngr)
+	}
 
 	routeGroup.POST("/login", route.Login(authMngr))
 	errCh <- agent.controlServer.ListenAndServe(ctx)
