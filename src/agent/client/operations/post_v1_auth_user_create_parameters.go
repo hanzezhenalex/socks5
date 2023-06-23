@@ -63,6 +63,9 @@ PostV1AuthUserCreateParams contains all the parameters to send to the API endpoi
 */
 type PostV1AuthUserCreateParams struct {
 
+	// Authorization.
+	Authorization *string
+
 	// User.
 	User *models.User
 
@@ -119,6 +122,17 @@ func (o *PostV1AuthUserCreateParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithAuthorization adds the authorization to the post v1 auth user create params
+func (o *PostV1AuthUserCreateParams) WithAuthorization(authorization *string) *PostV1AuthUserCreateParams {
+	o.SetAuthorization(authorization)
+	return o
+}
+
+// SetAuthorization adds the authorization to the post v1 auth user create params
+func (o *PostV1AuthUserCreateParams) SetAuthorization(authorization *string) {
+	o.Authorization = authorization
+}
+
 // WithUser adds the user to the post v1 auth user create params
 func (o *PostV1AuthUserCreateParams) WithUser(user *models.User) *PostV1AuthUserCreateParams {
 	o.SetUser(user)
@@ -137,6 +151,14 @@ func (o *PostV1AuthUserCreateParams) WriteToRequest(r runtime.ClientRequest, reg
 		return err
 	}
 	var res []error
+
+	if o.Authorization != nil {
+
+		// header param Authorization
+		if err := r.SetHeaderParam("Authorization", *o.Authorization); err != nil {
+			return err
+		}
+	}
 	if o.User != nil {
 		if err := r.SetBodyParam(o.User); err != nil {
 			return err
