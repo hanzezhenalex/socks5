@@ -61,7 +61,7 @@ func CreateNewUser(authMngr auth.Manager) gin.HandlerFunc {
 			}
 		}
 
-		if err := authMngr.CreateNewUser(context.Request.Context(), newUserInfo, creator.(string)); err != nil {
+		if err := authMngr.CreateNewUser(context.Request.Context(), newUserInfo, creator.(auth.Info).Username); err != nil {
 			if err == auth.NotAuthorize {
 				context.String(http.StatusUnauthorized, "permission denied for creator")
 			} else {

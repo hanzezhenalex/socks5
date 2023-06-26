@@ -234,6 +234,15 @@ var (
 	connectionRefused         = commandNegotiationSocksError("Connection refused", 0x05)
 	commandNotSupported       = commandNegotiationSocksError("Command not supported", 0x07)
 	addressTypeNotSupported   = commandNegotiationSocksError("Address type not supported", 0x08)
+
+	incorrectUsernamePassword = socksError{
+		msg:   "Incorrect Username Password",
+		cache: []byte{version, 0x01},
+	}
+	internalError = socksError{
+		msg:   "Internal error when auth",
+		cache: []byte{version, 0x02},
+	}
 )
 
 func commandNegotiationSocksError(msg string, code byte) socksError {
@@ -241,4 +250,37 @@ func commandNegotiationSocksError(msg string, code byte) socksError {
 		msg:   msg,
 		cache: []byte{version, code, rsv, addrTypeIPv4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 	}
+}
+
+func readUsernamePasswordAuthRequest(conn net.Conn) (string, string, error) {
+	var (
+		usernameBuf = make([]byte, maxAddrLen)
+		passwordBuf = make([]byte, maxAddrLen)
+	)
+
+	_, err := io.ReadFull(conn, usernameBuf[:2])
+	if err != nil {
+		return "", "", NetworkError{err: err}
+	}
+	usernameLen := usernameBuf[1]
+	_, err = io.ReadFull(conn, usernameBuf[:usernameLen])
+
+	_, err = io.ReadFull(conn, passwordBuf[:1])
+	if err != nil {
+		return "", "", NetworkError{err: err}
+	}
+	passwordLen := passwordBuf[0]
+	_, err = io.ReadFull(conn, usernameBuf[:passwordLen])
+	if err != nil {
+		return "", "", NetworkError{err: err}
+	}
+	return string(usernameBuf[:usernameLen]), string(usernameBuf[:passwordLen]), nil
+}
+
+func writeUsernamePasswordReply(conn net.Conn) error {
+	_, err := conn.Write([]byte{version, 0x00})
+	if err != nil {
+		return NetworkError{err: err}
+	}
+	return nil
 }
