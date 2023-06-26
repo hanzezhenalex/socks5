@@ -4,4 +4,6 @@ set -x
 
 make docker_agent
 
+docker container stop $(docker ps | grep socks-agent | awk '{print $1}')
+
 docker run -d --rm --network host alex/socks-agent:latest

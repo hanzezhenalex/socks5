@@ -53,31 +53,43 @@ func (info UserInfo) key() string {
 
 type DataStore interface {
 	GetUserInfo(ctx context.Context, username string) (UserInfo, error)
-	StoreUserInfo(ctx context.Context, newUser UserInfo) error
+	StoreUserInfoIfNotExist(ctx context.Context, newUser UserInfo) error
 }
 
 var (
-	UserNotExist      = fmt.Errorf("user not exist")
-	IncorrectPassword = fmt.Errorf("incorrect password")
-	NotAuthorize      = fmt.Errorf("not authorized")
+	UserExist               = fmt.Errorf("user exists")
+	UserNotExist            = fmt.Errorf("user not exist")
+	IncorrectPassword       = fmt.Errorf("incorrect password")
+	NotAuthorize            = fmt.Errorf("not authorized")
+	IllegalUsernamePassword = fmt.Errorf("illegal username password")
 
 	TokenExpired = fmt.Errorf("token expired")
 	TokenInvalid = fmt.Errorf("invalid token")
 )
 
 type LocalDataStore struct {
-	store sync.Map
+	store map[string]UserInfo
+	mu    sync.Mutex
 }
 
 func (s *LocalDataStore) GetUserInfo(_ context.Context, username string) (UserInfo, error) {
-	if info, ok := s.store.Load(username); ok {
-		return info.(UserInfo), nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if info, ok := s.store[username]; ok {
+		return info, nil
 	}
 	return UserInfo{}, UserNotExist
 }
 
-func (s *LocalDataStore) StoreUserInfo(_ context.Context, newUser UserInfo) error {
-	s.store.Store(newUser.Username, newUser)
+func (s *LocalDataStore) StoreUserInfoIfNotExist(_ context.Context, newUser UserInfo) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.store[newUser.Username]; ok {
+		return UserExist
+	}
+	s.store[newUser.Username] = newUser
 	return nil
 }
 
@@ -103,7 +115,7 @@ func NewLocalManagement() *LocalManagement {
 		secretKey: defaultSecretKey,
 		store:     &LocalDataStore{},
 	}
-	_ = mngr.store.StoreUserInfo(context.Background(), UserInfo{
+	_ = mngr.store.StoreUserInfoIfNotExist(context.Background(), UserInfo{
 		Username: DefaultAdminUsername,
 		Password: hash(DefaultAdminUsername, DefaultAdminPassword),
 		Roles:    []Role{RoleAdmin, RoleUser},
@@ -145,6 +157,10 @@ func (am *LocalManagement) Login(ctx context.Context, username string, password 
 }
 
 func (am *LocalManagement) CreateNewUser(ctx context.Context, newUser UserInfo, creator string) error {
+	if newUser.Username == "" || newUser.Password == "" {
+		return IllegalUsernamePassword
+	}
+
 	creatorInfo, err := am.store.GetUserInfo(ctx, creator)
 	if err != nil {
 		return fmt.Errorf("fail to get creator info, %w", err)
@@ -152,8 +168,9 @@ func (am *LocalManagement) CreateNewUser(ctx context.Context, newUser UserInfo, 
 	if !creatorInfo.IsAdmin() {
 		return NotAuthorize
 	}
+
 	newUser.Password = hash(newUser.Username, newUser.Password)
-	return am.store.StoreUserInfo(ctx, newUser)
+	return am.store.StoreUserInfoIfNotExist(ctx, newUser)
 }
 
 func hash(username string, password string) string {
