@@ -1,6 +1,7 @@
 package socks5
 
 import (
+	"github.com/hanzezhenalex/socks5/src/auth"
 	"github.com/hanzezhenalex/socks5/src/connection"
 	"io"
 	"net"
@@ -50,7 +51,7 @@ func (srv *TcpEchoServer) onConnection() error {
 
 func createSocksServer() (*Server, error, chan error) {
 	connMngr := connection.NewConnectionManagement()
-	authMngr := &struct{}{}
+	authMngr := auth.NewLocalManagement()
 	cfg := Config{
 		IP:      "localhost",
 		Port:    "8099",
