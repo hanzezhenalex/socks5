@@ -72,6 +72,12 @@ type LocalDataStore struct {
 	mu    sync.Mutex
 }
 
+func NewLocalDataStore() *LocalDataStore {
+	return &LocalDataStore{
+		store: make(map[string]UserInfo),
+	}
+}
+
 func (s *LocalDataStore) GetUserInfo(_ context.Context, username string) (UserInfo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -113,7 +119,7 @@ type LocalManagement struct {
 func NewLocalManagement() *LocalManagement {
 	mngr := &LocalManagement{
 		secretKey: defaultSecretKey,
-		store:     &LocalDataStore{},
+		store:     NewLocalDataStore(),
 	}
 	_ = mngr.store.StoreUserInfoIfNotExist(context.Background(), UserInfo{
 		Username: DefaultAdminUsername,
