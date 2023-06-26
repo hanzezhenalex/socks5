@@ -70,7 +70,7 @@ func init() {
 	rootCmd.Flags().StringVar(&controlPort, "control-port", "8090", "agent control server socksSrvPort")
 	rootCmd.Flags().StringSliceVarP(&commands, "commands", "c", []string{"connect"},
 		"commands for socks server, supported=[connect,]")
-	rootCmd.Flags().StringSliceVarP(&auths, "auths", "a", []string{"noAuth"},
+	rootCmd.Flags().StringSliceVarP(&auths, "auths", "a", []string{"noAuth", "usernamePassword"},
 		"auth methods for socks server, supported=[noAuth,]")
 }
 

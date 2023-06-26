@@ -188,6 +188,10 @@ func (srv *Server) AddAuthenticator(names ...string) error {
 		switch name {
 		case authNoAuth:
 			authenticator = NoAuth{}
+		case authUserPasswd:
+			authenticator = UsernamePassword{
+				auth: srv.authMngr,
+			}
 		default:
 			return fmt.Errorf("illeagal authenticator: %s", name)
 		}
