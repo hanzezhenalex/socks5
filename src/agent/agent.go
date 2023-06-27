@@ -28,6 +28,8 @@ type Config struct {
 
 type Agent struct {
 	config        Config
+	connMngr      connection.Manager
+	authMngr      auth.Manager
 	socksSrv      *socks5.Server
 	controlServer *tlsUtil.Server
 	closed        atomic.Bool
@@ -41,8 +43,6 @@ func NewAgent(config Config) *Agent {
 
 func (agent *Agent) Run() error {
 	var (
-		connMngr        connection.Manager
-		authMngr        auth.Manager
 		socksErrCh      = make(chan error, 1)
 		controlSrvErrCh = make(chan error, 1)
 		wg              sync.WaitGroup
@@ -51,13 +51,13 @@ func (agent *Agent) Run() error {
 
 	switch agent.config.Mode {
 	case LocalMode:
-		connMngr = connection.NewConnectionManagement()
-		authMngr = auth.NewLocalManagement()
+		agent.connMngr = connection.NewConnectionManagement()
+		agent.authMngr = auth.NewLocalManagement()
 	default:
 		return fmt.Errorf("%s mode is not supported yet", agent.config.Mode)
 	}
 
-	socksSrv, err := socks5.NewServer(agent.config.Socks5Config, connMngr, authMngr)
+	socksSrv, err := socks5.NewServer(agent.config.Socks5Config, agent.connMngr, agent.authMngr)
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func (agent *Agent) Run() error {
 	agent.controlServer = tlsUtil.NewServer(
 		fmt.Sprintf("%s:%s", agent.config.Socks5Config.IP, agent.config.ControlServerPort))
 	go func() {
-		agent.startControlServer(ctx, connMngr, authMngr, controlSrvErrCh)
+		agent.startControlServer(ctx, agent.connMngr, agent.authMngr, controlSrvErrCh)
 		close(controlSrvErrCh)
 		wg.Done()
 	}()
@@ -107,5 +107,6 @@ func (agent *Agent) startControlServer(ctx context.Context, connMngr connection.
 func (agent *Agent) Close() {
 	if agent.closed.CompareAndSwap(false, true) {
 		agent.socksSrv.Close()
+		agent.connMngr.Close()
 	}
 }

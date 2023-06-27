@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/hanzezhenalex/socks5/src/auth"
 	"github.com/hanzezhenalex/socks5/src/connection"
+	"github.com/hanzezhenalex/socks5/src/util"
 	"net"
 	"strings"
 	"sync"
@@ -31,6 +32,7 @@ type Server struct {
 	authMngr auth.Manager
 
 	listener net.Listener
+	wc       *util.WaitCloser
 
 	mutex          sync.Mutex
 	commanders     map[uint8]Commander
@@ -44,6 +46,7 @@ func NewServer(cfg Config, connMngr connection.Manager, authMngr auth.Manager) (
 		authMngr:       authMngr,
 		commanders:     make(map[byte]Commander),
 		authenticators: make(map[byte]Authenticator),
+		wc:             util.NewWaitCloser(),
 	}
 
 	if err := srv.AddAuthenticator(cfg.Auth...); err != nil {
@@ -70,6 +73,9 @@ func (srv *Server) Start() error {
 	} else {
 		srv.listener = listener
 	}
+
+	srv.wc.Add()
+	defer srv.wc.Done()
 
 	for {
 		conn, err := srv.listener.Accept()
@@ -236,5 +242,5 @@ func (srv *Server) Close() {
 	if srv.listener != nil {
 		_ = srv.listener.Close()
 	}
-	srv.connMngr.Close()
+	srv.wc.Close()
 }
