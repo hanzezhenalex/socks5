@@ -3,19 +3,29 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
-	httptransport "github.com/go-openapi/runtime/client"
-	"github.com/hanzezhenalex/socks5/src/agent/client"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/hanzezhenalex/socks5/src"
+	"github.com/hanzezhenalex/socks5/src/agent/client"
+
+	httpTransport "github.com/go-openapi/runtime/client"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 var (
 	ip, port    string
 	socksClient *client.SocksAgentAPIV1
+	tokenC      *tokenCollector
+	debug       bool
+)
+
+const (
+	tokenFilePathWindows = ""
+	tokenFilePathLinux   = "/tmp/socks_token"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -26,6 +36,23 @@ var rootCmd = &cobra.Command{
 And also control the behaviors of socks server.
 `,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		_tokenC, err := NewTokenCollector()
+		if err != nil {
+			logrus.Errorf("fail to create token collector, %s", err.Error())
+			return fmt.Errorf("fail to read token")
+		}
+
+		if cmd.Use == "login" || cmd.Use == "logout" {
+
+		} else {
+			if err := _tokenC.read(); err != nil {
+				logrus.Errorf("fail to read token, %s", err.Error())
+				return fmt.Errorf("fail to read token")
+			}
+		}
+
+		tokenC = _tokenC
+
 		if net.ParseIP(ip) == nil {
 			return fmt.Errorf("illeagal ip: %s", ip)
 		}
@@ -36,7 +63,7 @@ And also control the behaviors of socks server.
 			Host:    fmt.Sprintf("%s:%s", ip, port),
 			Schemes: []string{"https"},
 		}
-		runtime := httptransport.New(cfg.Host, cfg.BasePath, cfg.Schemes)
+		runtime := httpTransport.New(cfg.Host, cfg.BasePath, cfg.Schemes)
 		dialer := &net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
@@ -55,6 +82,12 @@ And also control the behaviors of socks server.
 		}
 		runtime.Transport = defaultTransport
 		socksClient = client.New(runtime, nil)
+
+		if debug {
+			logrus.SetLevel(logrus.DebugLevel)
+		} else {
+			logrus.SetOutput(src.BlackHole{})
+		}
 		return nil
 	},
 }
@@ -70,6 +103,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&ip, "addr", "127.0.0.1", "socks agent control server ip")
 	rootCmd.PersistentFlags().StringVar(&port, "port", "8090", "socks agent control server port")
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "run in debug mode")
 }
 
 func checkPort(port string) error {

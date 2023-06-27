@@ -52,12 +52,18 @@ func NewGetV1ConnectionListParamsWithHTTPClient(client *http.Client) *GetV1Conne
 	}
 }
 
-/* GetV1ConnectionListParams contains all the parameters to send to the API endpoint
-   for the get v1 connection list operation.
+/*
+GetV1ConnectionListParams contains all the parameters to send to the API endpoint
 
-   Typically these are written to a http.Request.
+	for the get v1 connection list operation.
+
+	Typically these are written to a http.Request.
 */
 type GetV1ConnectionListParams struct {
+
+	// Authorization.
+	Authorization *string
+
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
@@ -111,6 +117,17 @@ func (o *GetV1ConnectionListParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithAuthorization adds the authorization to the get v1 connection list params
+func (o *GetV1ConnectionListParams) WithAuthorization(authorization *string) *GetV1ConnectionListParams {
+	o.SetAuthorization(authorization)
+	return o
+}
+
+// SetAuthorization adds the authorization to the get v1 connection list params
+func (o *GetV1ConnectionListParams) SetAuthorization(authorization *string) {
+	o.Authorization = authorization
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetV1ConnectionListParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -118,6 +135,14 @@ func (o *GetV1ConnectionListParams) WriteToRequest(r runtime.ClientRequest, reg 
 		return err
 	}
 	var res []error
+
+	if o.Authorization != nil {
+
+		// header param Authorization
+		if err := r.SetHeaderParam("Authorization", *o.Authorization); err != nil {
+			return err
+		}
+	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)

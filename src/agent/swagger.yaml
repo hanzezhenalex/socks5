@@ -7,11 +7,38 @@ info:
 schemes:
   - "https"
 paths:
+  /login:
+    post:
+      description: "login in the socks system."
+      produces:
+        - "application/json"
+      parameters:
+        - in: body
+          name: "user"
+          schema:
+            $ref: "#/definitions/user"
+      responses:
+        200:
+          description: "success."
+          schema:
+            type: "string"
+        500:
+          description: "Error."
+          schema:
+            type: "string"
+        400:
+          description: "illegal request."
+          schema:
+            type: "string"
   /v1/connection/list:
     get:
       description: "Get the proxy connections."
       produces:
         - "application/json"
+      parameters:
+        - in: header
+          name: Authorization
+          type: string
       responses:
         200:
           description: "Get all the connections."
@@ -19,6 +46,37 @@ paths:
             $ref: "#/definitions/connections"
         500:
           description: "Error."
+          schema:
+            type: "string"
+  /v1/auth/user/create:
+    post:
+      description: "create new user."
+      produces:
+        - "application/json"
+      parameters:
+        - in: body
+          name: "user"
+          schema:
+            $ref: "#/definitions/user"
+        - in: header
+          name: Authorization
+          type: string
+      responses:
+        200:
+          description: "success."
+        400:
+          description: "illegal request."
+          schema:
+            type: "string"
+        401:
+          description: "only admin user can create new user"
+          schema:
+            type: "string"
+        500:
+          description: "Error."
+          schema:
+            type: "string"
+
 definitions:
   connections:
     type: "array"
@@ -33,3 +91,14 @@ definitions:
         type: "string"
       target:
         type: "string"
+  user:
+    type: "object"
+    properties:
+      username:
+        type: "string"
+      password:
+        type: "string"
+      roles:
+        type: "array"
+        items:
+          type: "string"

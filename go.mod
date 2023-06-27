@@ -8,6 +8,7 @@ require (
 	github.com/go-openapi/runtime v0.26.0
 	github.com/go-openapi/strfmt v0.21.7
 	github.com/go-openapi/swag v0.22.4
+	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.9.3

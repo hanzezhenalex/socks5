@@ -3,7 +3,9 @@ package socks5
 import (
 	"context"
 	"fmt"
+	"github.com/hanzezhenalex/socks5/src/auth"
 	"github.com/hanzezhenalex/socks5/src/connection"
+	"github.com/hanzezhenalex/socks5/src/util"
 	"net"
 	"strings"
 	"sync"
@@ -27,22 +29,24 @@ func (c Config) Addr() string {
 type Server struct {
 	config   Config
 	connMngr connection.Manager
-	authMngr src.AuthManager
+	authMngr auth.Manager
 
 	listener net.Listener
+	wc       *util.WaitCloser
 
 	mutex          sync.Mutex
 	commanders     map[uint8]Commander
 	authenticators map[uint8]Authenticator
 }
 
-func NewServer(cfg Config, connMngr connection.Manager, authMngr src.AuthManager) (*Server, error) {
+func NewServer(cfg Config, connMngr connection.Manager, authMngr auth.Manager) (*Server, error) {
 	srv := &Server{
 		config:         cfg,
 		connMngr:       connMngr,
 		authMngr:       authMngr,
 		commanders:     make(map[byte]Commander),
 		authenticators: make(map[byte]Authenticator),
+		wc:             util.NewWaitCloser(),
 	}
 
 	if err := srv.AddAuthenticator(cfg.Auth...); err != nil {
@@ -69,6 +73,9 @@ func (srv *Server) Start() error {
 	} else {
 		srv.listener = listener
 	}
+
+	srv.wc.Add()
+	defer srv.wc.Done()
 
 	for {
 		conn, err := srv.listener.Accept()
@@ -116,9 +123,9 @@ func (srv *Server) handshake(ctx context.Context, conn net.Conn, tracer *logrus.
 	return srv.connMngr.Pipe(ctx, authInfo, conn, to, target)
 }
 
-func (srv *Server) authenticate(ctx context.Context, conn net.Conn, buf []byte) (src.AuthInfo, error) {
+func (srv *Server) authenticate(ctx context.Context, conn net.Conn, buf []byte) (auth.Info, error) {
 	var (
-		authInfo      src.AuthInfo
+		authInfo      auth.Info
 		authenticator Authenticator
 	)
 	methods, err := readMethodNegotiationReq(conn, buf)
@@ -150,7 +157,7 @@ func (srv *Server) handleCommand(
 	ctx context.Context,
 	conn net.Conn,
 	buf []byte,
-	authInfo src.AuthInfo,
+	authInfo auth.Info,
 	tracer *logrus.Entry,
 ) (net.Conn, string, error) {
 	var commander Commander
@@ -187,6 +194,10 @@ func (srv *Server) AddAuthenticator(names ...string) error {
 		switch name {
 		case authNoAuth:
 			authenticator = NoAuth{}
+		case authUserPasswd:
+			authenticator = UsernamePassword{
+				auth: srv.authMngr,
+			}
 		default:
 			return fmt.Errorf("illeagal authenticator: %s", name)
 		}
@@ -231,5 +242,5 @@ func (srv *Server) Close() {
 	if srv.listener != nil {
 		_ = srv.listener.Close()
 	}
-	srv.connMngr.Close()
+	srv.wc.Close()
 }

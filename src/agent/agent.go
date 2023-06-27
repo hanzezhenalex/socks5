@@ -3,10 +3,11 @@ package agent
 import (
 	"context"
 	"fmt"
+	"github.com/hanzezhenalex/socks5/src/auth"
+	"github.com/hanzezhenalex/socks5/src/route"
 	"sync"
 	"sync/atomic"
 
-	"github.com/hanzezhenalex/socks5/src"
 	"github.com/hanzezhenalex/socks5/src/connection"
 	"github.com/hanzezhenalex/socks5/src/socks5"
 	tlsUtil "github.com/hanzezhenalex/socks5/src/tls"
@@ -27,6 +28,8 @@ type Config struct {
 
 type Agent struct {
 	config        Config
+	connMngr      connection.Manager
+	authMngr      auth.Manager
 	socksSrv      *socks5.Server
 	controlServer *tlsUtil.Server
 	closed        atomic.Bool
@@ -40,8 +43,6 @@ func NewAgent(config Config) *Agent {
 
 func (agent *Agent) Run() error {
 	var (
-		connMngr        connection.Manager
-		authMngr        src.AuthManager
 		socksErrCh      = make(chan error, 1)
 		controlSrvErrCh = make(chan error, 1)
 		wg              sync.WaitGroup
@@ -50,13 +51,13 @@ func (agent *Agent) Run() error {
 
 	switch agent.config.Mode {
 	case LocalMode:
-		connMngr = connection.NewConnectionManagement()
-		authMngr = struct{}{}
+		agent.connMngr = connection.NewConnectionManagement()
+		agent.authMngr = auth.NewLocalManagement()
 	default:
 		return fmt.Errorf("%s mode is not supported yet", agent.config.Mode)
 	}
 
-	socksSrv, err := socks5.NewServer(agent.config.Socks5Config, connMngr, authMngr)
+	socksSrv, err := socks5.NewServer(agent.config.Socks5Config, agent.connMngr, agent.authMngr)
 	if err != nil {
 		return err
 	}
@@ -71,7 +72,7 @@ func (agent *Agent) Run() error {
 	agent.controlServer = tlsUtil.NewServer(
 		fmt.Sprintf("%s:%s", agent.config.Socks5Config.IP, agent.config.ControlServerPort))
 	go func() {
-		agent.startControlServer(ctx, connMngr, controlSrvErrCh)
+		agent.startControlServer(ctx, agent.connMngr, agent.authMngr, controlSrvErrCh)
 		close(controlSrvErrCh)
 		wg.Done()
 	}()
@@ -89,16 +90,23 @@ func (agent *Agent) Run() error {
 	return runningErr
 }
 
-func (agent *Agent) startControlServer(ctx context.Context, connMngr connection.Manager, errCh chan error) {
+func (agent *Agent) startControlServer(ctx context.Context, connMngr connection.Manager, authMngr auth.Manager, errCh chan error) {
 	routeGroup := agent.controlServer.RouteGroup()
-	v1 := routeGroup.Group("/v1")
-	connection.RegisterConnectionManagerEndpoints(v1.Group("/connection"), connMngr)
+	{
+		v1 := routeGroup.Group("/v1")
+		v1.Use(route.JwtAuth(authMngr))
 
+		route.RegisterConnectionManagerEndpoints(v1.Group("/connection"), connMngr, authMngr)
+		route.RegisterAuthManagerEndpoints(v1.Group("/auth"), authMngr)
+	}
+
+	routeGroup.POST("/login", route.Login(authMngr))
 	errCh <- agent.controlServer.ListenAndServe(ctx)
 }
 
 func (agent *Agent) Close() {
 	if agent.closed.CompareAndSwap(false, true) {
 		agent.socksSrv.Close()
+		agent.connMngr.Close()
 	}
 }

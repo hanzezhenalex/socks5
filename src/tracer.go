@@ -16,3 +16,9 @@ func NewTraceContext(ctx context.Context) context.Context {
 func GetIDFromContext(ctx context.Context) uuid.UUID {
 	return ctx.Value(contextIDKey{}).(uuid.UUID)
 }
+
+type BlackHole struct{}
+
+func (bh BlackHole) Write(p []byte) (n int, err error) {
+	return len(p), nil
+}

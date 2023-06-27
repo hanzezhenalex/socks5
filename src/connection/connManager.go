@@ -3,6 +3,8 @@ package connection
 import (
 	"context"
 	"fmt"
+	"github.com/hanzezhenalex/socks5/src/auth"
+	"github.com/hanzezhenalex/socks5/src/util"
 	"io"
 	"net"
 	"strings"
@@ -15,10 +17,10 @@ import (
 )
 
 type Manager interface {
-	Pipe(ctx context.Context, authInfo src.AuthInfo, from, to net.Conn, target string) error
-	DialTCP(ctx context.Context, authInfo src.AuthInfo, addr string) (net.Conn, net.Addr, error)
+	Pipe(ctx context.Context, authInfo auth.Info, from, to net.Conn, target string) error
+	DialTCP(ctx context.Context, authInfo auth.Info, addr string) (net.Conn, net.Addr, error)
 	Close()
-	ListConnections(ctx context.Context, authInfo src.AuthInfo) []PipeInfo
+	ListConnections(ctx context.Context, authInfo auth.Info) []PipeInfo
 }
 
 type PipeInfo struct {
@@ -30,9 +32,10 @@ type PipeInfo struct {
 type pipe struct {
 	connMngr *LocalManagement
 	uuid     uuid.UUID
-	authInfo src.AuthInfo
+	authInfo auth.Info
 	from, to net.Conn
 	target   string
+	stopCh   chan struct{}
 }
 
 func (p *pipe) info() PipeInfo {
@@ -49,6 +52,15 @@ func (p *pipe) copyTo(ch chan error, from, to net.Conn) {
 }
 
 func (p *pipe) pipe(ctx context.Context, ch chan error) {
+	tracer := logrus.WithField("id", p.uuid)
+	tracer.Info("start piping")
+
+	defer func() {
+		tracer.Info("pipe closed")
+		p.connMngr.pipes.Delete(p.uuid)
+		p.connMngr.closer.Done()
+	}()
+
 	received := 0
 	connClosed := false
 	closeConn := func() {
@@ -59,8 +71,6 @@ func (p *pipe) pipe(ctx context.Context, ch chan error) {
 		_ = p.to.Close()
 		connClosed = true
 	}
-	tracer := logrus.WithField("id", p.uuid)
-	tracer.Info("start piping")
 
 	go p.copyTo(ch, p.from, p.to)
 	go p.copyTo(ch, p.to, p.from)
@@ -68,7 +78,7 @@ func (p *pipe) pipe(ctx context.Context, ch chan error) {
 LOOP:
 	for {
 		select {
-		case <-p.connMngr.stopCh:
+		case <-p.stopCh:
 			closeConn()
 		case <-ctx.Done():
 			closeConn()
@@ -83,31 +93,26 @@ LOOP:
 			}
 		}
 	}
-
-	tracer.Info("pipe closed")
-	p.connMngr.mutex.Lock()
-	defer p.connMngr.mutex.Unlock()
-	delete(p.connMngr.pipes, p.uuid)
-	p.connMngr.wg.Done()
 }
 
 type LocalManagement struct {
-	wg     sync.WaitGroup
-	mutex  sync.Mutex
-	pipes  map[uuid.UUID]*pipe
-	closed bool
-	stopCh chan struct{}
+	pipes  sync.Map
+	closer *util.WaitCloser
 }
 
 func NewConnectionManagement() *LocalManagement {
 	return &LocalManagement{
-		pipes:  make(map[uuid.UUID]*pipe),
-		stopCh: make(chan struct{}),
+		closer: util.NewWaitCloser(),
 	}
 }
 
-func (connMngr *LocalManagement) Pipe(ctx context.Context, authInfo src.AuthInfo, from, to net.Conn, target string) error {
+func (connMngr *LocalManagement) Pipe(ctx context.Context, authInfo auth.Info, from, to net.Conn, target string) error {
 	newPipe := func() *pipe {
+		ok, ch := connMngr.closer.Add()
+		if !ok {
+			return nil
+		}
+
 		p := &pipe{
 			connMngr: connMngr,
 			from:     from,
@@ -115,16 +120,10 @@ func (connMngr *LocalManagement) Pipe(ctx context.Context, authInfo src.AuthInfo
 			authInfo: authInfo,
 			uuid:     src.GetIDFromContext(ctx),
 			target:   target,
+			stopCh:   ch,
 		}
 
-		connMngr.mutex.Lock()
-		defer connMngr.mutex.Unlock()
-
-		if connMngr.closed {
-			return nil
-		}
-		connMngr.pipes[p.uuid] = p
-		connMngr.wg.Add(1)
+		connMngr.pipes.Store(p.uuid, p)
 		return p
 	}
 
@@ -140,7 +139,7 @@ func (connMngr *LocalManagement) Pipe(ctx context.Context, authInfo src.AuthInfo
 	return nil
 }
 
-func (connMngr *LocalManagement) DialTCP(_ context.Context, _ src.AuthInfo, addr string) (net.Conn, net.Addr, error) {
+func (connMngr *LocalManagement) DialTCP(_ context.Context, _ auth.Info, addr string) (net.Conn, net.Addr, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, nil, err
@@ -150,29 +149,19 @@ func (connMngr *LocalManagement) DialTCP(_ context.Context, _ src.AuthInfo, addr
 
 func (connMngr *LocalManagement) Close() {
 	logrus.Info("start closing connection management")
-	connMngr.mutex.Lock()
-	if connMngr.closed == false {
-		connMngr.closed = true
-		close(connMngr.stopCh)
-	} else {
-		connMngr.mutex.Unlock()
-		return
-	}
 
-	connMngr.mutex.Unlock()
-	connMngr.wg.Wait()
+	connMngr.closer.Close()
+
 	logrus.Info("connection management closed")
 }
 
-func (connMngr *LocalManagement) ListConnections(ctx context.Context, authInfo src.AuthInfo) []PipeInfo {
-	connMngr.mutex.Lock()
-	defer connMngr.mutex.Unlock()
-
+func (connMngr *LocalManagement) ListConnections(ctx context.Context, authInfo auth.Info) []PipeInfo {
 	var infos []PipeInfo
 
-	for _, p := range connMngr.pipes {
-		infos = append(infos, p.info())
-	}
+	connMngr.pipes.Range(func(_, p any) bool {
+		infos = append(infos, p.(*pipe).info())
+		return true
+	})
 
 	return infos
 }
